@@ -5,8 +5,8 @@ export enum NicheType {
   STOCK = 'STOCK',
   POLICY = 'POLICY',
   HOSPITAL = 'HOSPITAL',
-  RESTAURANT = 'RESTAURANT',
   TRAVEL = 'TRAVEL',
+  RESTAURANT = 'RESTAURANT',
 }
 
 export interface NicheConfig {
@@ -39,6 +39,8 @@ export interface Draft {
 export interface NicheSettings {
   notionApiKey: string;
   notionDatabaseId: string;
+  defaultPrompt?: string; // Notion용 기본 프롬프트
+  defaultNaverPrompt?: string; // Naver용 기본 프롬프트 (AI 플랫폼만)
 }
 
 export interface AppSettings {
