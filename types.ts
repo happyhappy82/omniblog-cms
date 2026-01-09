@@ -4,7 +4,7 @@ export enum NicheType {
   REAL_ESTATE = 'REAL_ESTATE',
   STOCK = 'STOCK',
   POLICY = 'POLICY',
-  HOSPITAL = 'HOSPITAL',
+  TRAVEL = 'TRAVEL',
   RESTAURANT = 'RESTAURANT',
 }
 
