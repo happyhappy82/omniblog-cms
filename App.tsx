@@ -253,13 +253,14 @@ const App = () => {
 
   const createNewDraft = (nicheId: NicheType = activeNicheId) => {
     const now = Date.now();
+    const nicheSettings = settings.nicheSettings[nicheId];
     const newDraft: Draft = {
       id: crypto.randomUUID(),
       nicheId: nicheId,
       title: '',
       context: '',
-      userPrompt: '',
-      naverPrompt: '',
+      userPrompt: nicheSettings?.defaultPrompt || '',
+      naverPrompt: nicheSettings?.defaultNaverPrompt || '',
       content: '',
       naverContent: '',
       status: 'idle',
@@ -272,13 +273,14 @@ const App = () => {
 
   const handleAddTopics = (topics: string[]) => {
     const now = Date.now();
+    const nicheSettings = settings.nicheSettings[activeNicheId];
     const newDrafts: Draft[] = topics.map((topic, index) => ({
       id: crypto.randomUUID(),
       nicheId: activeNicheId,
       title: topic,
       context: '',
-      userPrompt: '',
-      naverPrompt: '',
+      userPrompt: nicheSettings?.defaultPrompt || '',
+      naverPrompt: nicheSettings?.defaultNaverPrompt || '',
       content: '',
       naverContent: '',
       status: 'idle',
@@ -338,18 +340,31 @@ const App = () => {
     }
   };
 
-  const updateCurrentDraft = (field: keyof Draft, value: string, applyToAll: boolean = false) => {
+  const updateCurrentDraft = (field: keyof Draft, value: string) => {
     if (!currentDraftId) return;
 
-    if (applyToAll && (field === 'userPrompt' || field === 'naverPrompt')) {
-      // 같은 플랫폼의 모든 draft에 프롬프트 적용
+    // 프롬프트 필드는 항상 같은 플랫폼의 모든 draft에 적용
+    if (field === 'userPrompt' || field === 'naverPrompt') {
+      // 1. 같은 플랫폼의 모든 draft 업데이트
       setDrafts(prev => prev.map(d =>
         d.nicheId === activeNicheId
           ? { ...d, [field]: value, lastModified: Date.now() }
           : d
       ));
+
+      // 2. settings의 defaultPrompt도 업데이트
+      setSettings(prev => ({
+        ...prev,
+        nicheSettings: {
+          ...prev.nicheSettings,
+          [activeNicheId]: {
+            ...prev.nicheSettings[activeNicheId],
+            [field === 'userPrompt' ? 'defaultPrompt' : 'defaultNaverPrompt']: value
+          }
+        }
+      }));
     } else {
-      // 현재 draft만 업데이트
+      // 다른 필드는 현재 draft만 업데이트
       setDrafts(prev => prev.map(d =>
         d.id === currentDraftId
           ? { ...d, [field]: value, lastModified: Date.now() }
@@ -874,12 +889,9 @@ const App = () => {
                             placeholder="[네이버용] 예: SEO 최적화, 이미지 삽입 위치 표시, 친근한 말투..."
                             className="w-full bg-[#0D1117] border border-slate-800 rounded-md p-3 text-sm text-slate-300 focus:border-[#0EA5E9] outline-none resize-none placeholder:text-slate-600 min-h-[80px]"
                           />
-                          <button
-                            onClick={() => updateCurrentDraft('naverPrompt', currentDraft.naverPrompt, true)}
-                            className="mt-2 px-3 py-1.5 bg-green-600/20 hover:bg-green-600/30 border border-green-600/50 rounded-md text-xs text-green-400 font-medium transition-colors"
-                          >
-                            이 프롬프트를 AI 플랫폼의 모든 글에 일괄 적용
-                          </button>
+                          <p className="mt-2 text-xs text-slate-500 italic">
+                            💡 이 프롬프트는 AI 플랫폼의 모든 글에 자동으로 적용됩니다
+                          </p>
                         </div>
                       )}
 
@@ -902,12 +914,9 @@ const App = () => {
                           placeholder="[필수 요구사항] 예: 30대 직장인을 타겟으로 해줘, 친근한 말투로..."
                           className="w-full bg-[#0D1117] border border-slate-800 rounded-md p-3 text-sm text-slate-300 focus:border-[#0EA5E9] outline-none resize-none placeholder:text-slate-600 min-h-[80px]"
                         />
-                        <button
-                          onClick={() => updateCurrentDraft('userPrompt', currentDraft.userPrompt, true)}
-                          className="mt-2 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-600/50 rounded-md text-xs text-emerald-400 font-medium transition-colors"
-                        >
-                          이 프롬프트를 {activeNiche.label} 플랫폼의 모든 글에 일괄 적용
-                        </button>
+                        <p className="mt-2 text-xs text-slate-500 italic">
+                          💡 이 프롬프트는 {activeNiche.label} 플랫폼의 모든 글에 자동으로 적용됩니다
+                        </p>
                       </div>
                    </div>
                 </div>
