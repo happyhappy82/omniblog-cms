@@ -131,7 +131,12 @@ export async function createNotionPage(
     const blocks = markdownToNotionBlocks(content);
 
     // 프록시 서버를 통해 노션 API 호출
-    const response = await fetch('http://localhost:3007/api/notion/pages', {
+    // 개발 환경: localhost:3007, 프로덕션: Vercel serverless function
+    const apiUrl = import.meta.env.DEV
+      ? 'http://localhost:3007/api/notion/pages'
+      : '/api/notion-pages';
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
