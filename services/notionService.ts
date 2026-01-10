@@ -5,6 +5,99 @@ interface NotionBlock {
 }
 
 /**
+ * 마크다운 표를 파싱하여 노션 테이블 블록으로 변환
+ */
+function parseMarkdownTable(lines: string[], startIndex: number): { block: NotionBlock; endIndex: number } | null {
+  const tableLines: string[] = [];
+  let i = startIndex;
+
+  // 표 라인 수집 (| 로 시작하는 연속된 라인들)
+  while (i < lines.length && lines[i].trim().startsWith('|')) {
+    tableLines.push(lines[i].trim());
+    i++;
+  }
+
+  if (tableLines.length < 2) return null; // 최소 헤더 + 구분선 필요
+
+  // 각 행을 셀로 분할
+  const rows = tableLines.map(line => {
+    return line
+      .split('|')
+      .map(cell => cell.trim())
+      .filter(cell => cell !== ''); // 빈 셀 제거 (양 끝 | 때문에 생기는)
+  });
+
+  // 구분선 제거 (|---|---| 형태)
+  const dataRows = rows.filter(row => !row.every(cell => /^[-:| ]+$/.test(cell)));
+
+  if (dataRows.length === 0) return null;
+
+  // 헤더와 데이터 분리
+  const hasHeader = tableLines.length > 1 && /^[|\s:-]+$/.test(tableLines[1]);
+  const headerRow = hasHeader ? dataRows[0] : null;
+  const bodyRows = hasHeader ? dataRows.slice(1) : dataRows;
+
+  const tableWidth = Math.max(...dataRows.map(row => row.length));
+
+  // 노션 테이블 블록 생성
+  const tableChildren: NotionBlock[] = [];
+
+  // 헤더 행 추가
+  if (headerRow) {
+    tableChildren.push({
+      object: 'block',
+      type: 'table_row',
+      table_row: {
+        cells: headerRow.map(cell => [
+          {
+            type: 'text',
+            text: { content: cell }
+          }
+        ])
+      }
+    });
+  }
+
+  // 데이터 행 추가
+  bodyRows.forEach(row => {
+    // 열 개수를 맞추기 위해 부족한 셀은 빈 문자열로 채움
+    const paddedRow = [...row];
+    while (paddedRow.length < tableWidth) {
+      paddedRow.push('');
+    }
+
+    tableChildren.push({
+      object: 'block',
+      type: 'table_row',
+      table_row: {
+        cells: paddedRow.map(cell => [
+          {
+            type: 'text',
+            text: { content: cell }
+          }
+        ])
+      }
+    });
+  });
+
+  const tableBlock: NotionBlock = {
+    object: 'block',
+    type: 'table',
+    table: {
+      table_width: tableWidth,
+      has_column_header: hasHeader,
+      has_row_header: false,
+      children: tableChildren
+    }
+  };
+
+  return {
+    block: tableBlock,
+    endIndex: i - 1
+  };
+}
+
+/**
  * 마크다운 텍스트를 노션 블록으로 변환
  */
 function markdownToNotionBlocks(markdown: string): NotionBlock[] {
@@ -16,6 +109,16 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
 
     // 빈 줄 건너뛰기
     if (line.trim() === '') continue;
+
+    // 표 감지 및 처리
+    if (line.trim().startsWith('|')) {
+      const tableResult = parseMarkdownTable(lines, i);
+      if (tableResult) {
+        blocks.push(tableResult.block);
+        i = tableResult.endIndex; // 표의 끝으로 인덱스 이동
+        continue;
+      }
+    }
 
     // H1 제목
     if (line.startsWith('# ')) {
