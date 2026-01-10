@@ -31,6 +31,7 @@ export interface Draft {
   naverContent: string; // Naver Content
   status: DraftStatus;
   error?: string; // 에러 메시지 저장
+  scheduledDate?: string; // 포스팅 예정 날짜 (ISO 8601 format)
   createdAt: number;
   lastModified: number;
 }
@@ -44,7 +45,43 @@ export interface NicheSettings {
 
 export interface AppSettings {
   geminiApiKey: string;
+  imgbbApiKey: string; // imgBB 이미지 호스팅 API Key (전체 플랫폼 공유)
   nicheSettings: {
     [key in NicheType]: NicheSettings;
   };
+}
+
+// imgBB API 응답 타입
+export interface ImgBBUploadResponse {
+  data: {
+    id: string;
+    url_viewer: string;
+    url: string;
+    display_url: string;
+    title: string;
+    time: string;
+    image: {
+      filename: string;
+      name: string;
+      mime: string;
+      extension: string;
+      url: string;
+    };
+    thumb: {
+      url: string;
+    };
+    medium: {
+      url: string;
+    };
+    delete_url: string;
+  };
+  success: boolean;
+  status: number;
+}
+
+// 이미지 업로드 상태
+export interface ImageUploadState {
+  isUploading: boolean;
+  progress: number;
+  error: string | null;
 }

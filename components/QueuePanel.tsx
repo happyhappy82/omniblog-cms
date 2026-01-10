@@ -12,6 +12,7 @@ interface QueuePanelProps {
   onBulkNotionUpload: () => void;
   onAddTopics: (topics: string[]) => void;
   onDeleteDraft: (draftId: string) => void;
+  onBatchScheduleDates: (startDate: Date, intervalDays: number) => void;
 }
 
 const STATUS_CONFIG = {
@@ -31,12 +32,16 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   onBulkNotionUpload,
   onAddTopics,
   onDeleteDraft,
+  onBatchScheduleDates,
 }) => {
   const [showAddTopics, setShowAddTopics] = useState(false);
   const [topicsText, setTopicsText] = useState('');
   const [statusFilter, setStatusFilter] = useState<DraftStatus | 'all'>('all');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDrafts, setSelectedDrafts] = useState<Set<string>>(new Set());
+  const [showScheduleDate, setShowScheduleDate] = useState(false);
+  const [scheduleStartDate, setScheduleStartDate] = useState('');
+  const [scheduleInterval, setScheduleInterval] = useState('1');
 
   const niche = NICHES.find(n => n.id === nicheId);
 
@@ -120,6 +125,24 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
 
     setSelectedDrafts(new Set());
     setSelectionMode(false);
+  };
+
+  const handleApplySchedule = () => {
+    if (!scheduleStartDate) {
+      alert('시작 날짜를 선택해주세요.');
+      return;
+    }
+
+    const intervalDays = parseInt(scheduleInterval);
+    if (isNaN(intervalDays) || intervalDays < 0) {
+      alert('올바른 간격을 입력해주세요.');
+      return;
+    }
+
+    const startDate = new Date(scheduleStartDate);
+    onBatchScheduleDates(startDate, intervalDays);
+    setShowScheduleDate(false);
+    alert(`날짜가 ${intervalDays}일 간격으로 설정되었습니다.`);
   };
 
   return (
@@ -278,6 +301,100 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
         )}
       </div>
 
+      {/* Schedule Date Section */}
+      {showScheduleDate ? (
+        <div className="px-4 py-3 border-b border-slate-800/50 bg-[#111418]">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-xs font-bold text-slate-300">📅 포스팅 날짜 일괄 설정</label>
+            <button
+              onClick={() => setShowScheduleDate(false)}
+              className="text-slate-500 hover:text-white text-xs"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">시작 날짜</label>
+              <input
+                type="date"
+                value={scheduleStartDate}
+                onChange={(e) => setScheduleStartDate(e.target.value)}
+                className="w-full bg-[#1C2128] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-[#0EA5E9] focus:ring-1 focus:ring-[#0EA5E9] outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">간격 (일)</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setScheduleInterval('1')}
+                  className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${
+                    scheduleInterval === '1'
+                      ? 'bg-[#0EA5E9] text-white'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  1일
+                </button>
+                <button
+                  onClick={() => setScheduleInterval('2')}
+                  className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${
+                    scheduleInterval === '2'
+                      ? 'bg-[#0EA5E9] text-white'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  2일
+                </button>
+                <button
+                  onClick={() => setScheduleInterval('3')}
+                  className={`flex-1 py-2 text-xs font-medium rounded-lg transition-colors ${
+                    scheduleInterval === '3'
+                      ? 'bg-[#0EA5E9] text-white'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  3일
+                </button>
+              </div>
+              <input
+                type="number"
+                min="0"
+                value={scheduleInterval}
+                onChange={(e) => setScheduleInterval(e.target.value)}
+                placeholder="직접 입력 (일)"
+                className="w-full mt-2 bg-[#1C2128] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-[#0EA5E9] focus:ring-1 focus:ring-[#0EA5E9] outline-none"
+              />
+            </div>
+            <button
+              onClick={handleApplySchedule}
+              className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <Icon name="Calendar" size={16} />
+              날짜 일괄 적용 ({allNicheDrafts.length}개)
+            </button>
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              생성 순서대로 {scheduleInterval}일 간격으로 날짜가 설정됩니다.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="px-4 py-3 border-b border-slate-800/50">
+          <button
+            onClick={() => setShowScheduleDate(true)}
+            disabled={allNicheDrafts.length === 0}
+            className={`w-full py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors ${
+              allNicheDrafts.length === 0
+                ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                : 'bg-purple-600/20 text-purple-400 hover:bg-purple-600/30 border border-purple-600/50'
+            }`}
+          >
+            <Icon name="Calendar" size={16} />
+            포스팅 날짜 일괄 설정
+          </button>
+        </div>
+      )}
+
       {/* Draft List */}
       <div className="flex-1 overflow-y-auto">
         {nicheDrafts.length === 0 ? (
@@ -336,7 +453,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
                           <div className="text-sm font-medium truncate">
                             {draft.title || '(제목 없음)'}
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                               isActive ? 'bg-white/20 text-white' : `${statusConfig.bgColor} ${statusConfig.color}`
                             }`}>
@@ -345,6 +462,14 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
                             <span className={`text-[10px] ${isActive ? 'text-white/70' : 'text-slate-600'}`}>
                               {formatDate(draft.createdAt)}
                             </span>
+                            {draft.scheduledDate && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                isActive ? 'bg-purple-400/20 text-white' : 'bg-purple-900/30 text-purple-400'
+                              }`}>
+                                <Icon name="Calendar" size={10} />
+                                {new Date(draft.scheduledDate).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
+                              </span>
+                            )}
                           </div>
                           {draft.error && (
                             <div className="text-[10px] text-red-400 mt-1 truncate">

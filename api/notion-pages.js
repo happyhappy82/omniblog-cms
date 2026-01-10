@@ -24,13 +24,40 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { apiKey, databaseId, title, blocks } = req.body;
+    const { apiKey, databaseId, title, blocks, scheduledDate } = req.body;
 
     if (!apiKey || !databaseId || !title) {
       return res.status(400).json({
         success: false,
         error: 'Missing required fields'
       });
+    }
+
+    // properties 객체 구성
+    const properties = {
+      title: {
+        title: [
+          {
+            text: {
+              content: title
+            }
+          }
+        ]
+      },
+      Status: {
+        status: {
+          name: 'Review'
+        }
+      }
+    };
+
+    // scheduledDate가 있으면 Date 속성 추가
+    if (scheduledDate) {
+      properties.Date = {
+        date: {
+          start: scheduledDate
+        }
+      };
     }
 
     // Notion API 호출
@@ -46,22 +73,7 @@ export default async function handler(req, res) {
           type: 'database_id',
           database_id: databaseId
         },
-        properties: {
-          title: {
-            title: [
-              {
-                text: {
-                  content: title
-                }
-              }
-            ]
-          },
-          Status: {
-            status: {
-              name: 'Review'
-            }
-          }
-        },
+        properties,
         children: blocks
       })
     });

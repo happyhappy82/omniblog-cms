@@ -120,6 +120,25 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
       }
     }
 
+    // 이미지: ![alt](url)
+    const imageMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
+    if (imageMatch) {
+      const [, alt, url] = imageMatch;
+      if (url && url.trim() !== '') {
+        blocks.push({
+          object: 'block',
+          type: 'image',
+          image: {
+            type: 'external',
+            external: {
+              url: url.trim()
+            }
+          }
+        } as any);
+      }
+      continue;
+    }
+
     // H1 제목
     if (line.startsWith('# ')) {
       blocks.push({
@@ -227,7 +246,8 @@ export async function createNotionPage(
   apiKey: string,
   databaseId: string,
   title: string,
-  content: string
+  content: string,
+  scheduledDate?: string
 ): Promise<{ success: boolean; pageUrl?: string; error?: string }> {
   try {
     // 마크다운을 노션 블록으로 변환
@@ -248,7 +268,8 @@ export async function createNotionPage(
         apiKey,
         databaseId,
         title: title || '제목 없음',
-        blocks
+        blocks,
+        scheduledDate
       })
     });
 

@@ -330,6 +330,31 @@ const App = () => {
     }
   };
 
+  // 날짜 일괄 설정
+  const handleBatchScheduleDates = (startDate: Date, intervalDays: number) => {
+    const nicheDrafts = drafts
+      .filter(d => d.nicheId === activeNicheId)
+      .sort((a, b) => a.createdAt - b.createdAt); // 생성 순서대로 정렬
+
+    const updatedDrafts = [...drafts];
+
+    nicheDrafts.forEach((draft, index) => {
+      const scheduledDate = new Date(startDate);
+      scheduledDate.setDate(scheduledDate.getDate() + (index * intervalDays));
+
+      const draftIndex = updatedDrafts.findIndex(d => d.id === draft.id);
+      if (draftIndex !== -1) {
+        updatedDrafts[draftIndex] = {
+          ...updatedDrafts[draftIndex],
+          scheduledDate: scheduledDate.toISOString(),
+          lastModified: Date.now()
+        };
+      }
+    });
+
+    setDrafts(updatedDrafts);
+  };
+
   const handleUndo = () => {
     if (deletedDraftsHistory.length === 0) return;
 
@@ -715,7 +740,8 @@ const App = () => {
         currentNicheSettings.notionApiKey,
         currentNicheSettings.notionDatabaseId,
         currentDraft.title,
-        currentDraft.content
+        currentDraft.content,
+        currentDraft.scheduledDate
       );
 
       if (result.success) {
@@ -809,6 +835,7 @@ const App = () => {
         onBulkNotionUpload={handleBulkNotionUpload}
         onAddTopics={handleAddTopics}
         onDeleteDraft={handleDeleteDraft}
+        onBatchScheduleDates={handleBatchScheduleDates}
       />
 
       {/* 3. Main Workspace */}

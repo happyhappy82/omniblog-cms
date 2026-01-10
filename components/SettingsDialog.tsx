@@ -46,6 +46,29 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ isOpen, onClose,
             <p className="text-xs text-slate-500 mt-1.5">AI 초안 생성을 위해 필요합니다.</p>
           </div>
 
+          {/* imgBB API Key (공통) */}
+          <div>
+            <label className="block text-sm font-bold text-slate-300 mb-1.5">imgBB API Key (공통)</label>
+            <input
+              type="password"
+              value={localSettings.imgbbApiKey || ''}
+              onChange={(e) => setLocalSettings(prev => ({ ...prev, imgbbApiKey: e.target.value }))}
+              placeholder="imgBB API Key 입력..."
+              className="w-full bg-[#0D1117] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-[#0EA5E9] focus:border-[#0EA5E9] outline-none transition-all"
+            />
+            <p className="text-xs text-slate-500 mt-1.5">
+              모든 에디터에서 이미지 업로드에 사용됩니다.
+              <a
+                href="https://api.imgbb.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#0EA5E9] hover:underline ml-1"
+              >
+                API Key 발급받기
+              </a>
+            </p>
+          </div>
+
           <div className="h-px bg-slate-800/50 w-full"></div>
 
           {/* 블로그 플랫폼별 Notion 설정 */}
