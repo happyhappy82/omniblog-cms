@@ -26,6 +26,8 @@ export default async function handler(req, res) {
   try {
     const { apiKey, databaseId, title, blocks, scheduledDate } = req.body;
 
+    console.log('Received scheduledDate:', scheduledDate);
+
     if (!apiKey || !databaseId || !title) {
       return res.status(400).json({
         success: false,
@@ -53,9 +55,23 @@ export default async function handler(req, res) {
 
     // scheduledDate가 있으면 Date 속성 추가
     if (scheduledDate) {
+      // ISO 8601 형식으로 변환 (YYYY-MM-DDTHH:mm:ss 또는 YYYY-MM-DD)
+      let dateStart = scheduledDate;
+
+      // 이미 ISO 형식인지 확인
+      if (!scheduledDate.includes('T') && !scheduledDate.includes('Z')) {
+        // 날짜만 있는 경우 그대로 사용
+        dateStart = scheduledDate.split('.')[0]; // 밀리초 제거
+      } else {
+        // ISO 형식 정리
+        dateStart = new Date(scheduledDate).toISOString();
+      }
+
+      console.log('Setting Date property:', dateStart);
+
       properties.Date = {
         date: {
-          start: scheduledDate
+          start: dateStart
         }
       };
     }

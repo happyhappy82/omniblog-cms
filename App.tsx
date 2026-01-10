@@ -149,12 +149,13 @@ const App = () => {
     if (savedDrafts) {
       try {
         const parsed = JSON.parse(savedDrafts);
-        // 기존 데이터 마이그레이션: status, createdAt, naverPrompt 필드 추가
+        // 기존 데이터 마이그레이션: status, createdAt, naverPrompt, scheduledDate 필드 추가
         const migratedDrafts = parsed.map((d: any) => ({
           ...d,
           status: d.status || 'idle',
           createdAt: d.createdAt || d.lastModified || Date.now(),
           naverPrompt: d.naverPrompt || '',
+          scheduledDate: d.scheduledDate || undefined,
         }));
         setDrafts(migratedDrafts);
 
@@ -686,7 +687,8 @@ const App = () => {
           currentNicheSettings.notionApiKey,
           currentNicheSettings.notionDatabaseId,
           draft.title,
-          draft.content
+          draft.content,
+          draft.scheduledDate
         );
 
         if (result.success) {
