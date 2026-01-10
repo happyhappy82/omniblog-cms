@@ -55,25 +55,37 @@ export default async function handler(req, res) {
 
     // scheduledDate가 있으면 Date 속성 추가
     if (scheduledDate) {
-      // ISO 8601 형식으로 변환 (YYYY-MM-DDTHH:mm:ss 또는 YYYY-MM-DD)
-      let dateStart = scheduledDate;
+      // ISO 8601 형식으로 변환
+      const dateObj = new Date(scheduledDate);
 
-      // 이미 ISO 형식인지 확인
-      if (!scheduledDate.includes('T') && !scheduledDate.includes('Z')) {
-        // 날짜만 있는 경우 그대로 사용
-        dateStart = scheduledDate.split('.')[0]; // 밀리초 제거
+      // 노션은 ISO 8601 형식을 요구: YYYY-MM-DDTHH:mm:ss.sssZ 또는 YYYY-MM-DD
+      // 시간이 있는 경우: 전체 ISO 문자열 사용
+      // 시간이 없는 경우: 날짜만 사용 (YYYY-MM-DD)
+      let dateStart;
+
+      if (scheduledDate.includes('T') || scheduledDate.includes(':')) {
+        // 시간 포함된 경우: ISO 8601 형식으로 변환
+        dateStart = dateObj.toISOString();
       } else {
-        // ISO 형식 정리
-        dateStart = new Date(scheduledDate).toISOString();
+        // 날짜만 있는 경우
+        dateStart = scheduledDate;
       }
 
-      console.log('Setting Date property:', dateStart);
+      console.log('Setting Date property:', {
+        original: scheduledDate,
+        converted: dateStart,
+        type: typeof dateStart
+      });
 
       properties.Date = {
         date: {
           start: dateStart
         }
       };
+
+      console.log('Date property object:', JSON.stringify(properties.Date, null, 2));
+    } else {
+      console.log('No scheduledDate provided');
     }
 
     const requestBody = {
