@@ -41,6 +41,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   const [selectedDrafts, setSelectedDrafts] = useState<Set<string>>(new Set());
   const [showScheduleDate, setShowScheduleDate] = useState(false);
   const [scheduleStartDate, setScheduleStartDate] = useState('');
+  const [scheduleStartTime, setScheduleStartTime] = useState('09:00');
   const [scheduleInterval, setScheduleInterval] = useState('1');
 
   const niche = NICHES.find(n => n.id === nicheId);
@@ -133,16 +134,22 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
       return;
     }
 
+    if (!scheduleStartTime) {
+      alert('시작 시간을 입력해주세요.');
+      return;
+    }
+
     const intervalDays = parseInt(scheduleInterval);
     if (isNaN(intervalDays) || intervalDays < 0) {
       alert('올바른 간격을 입력해주세요.');
       return;
     }
 
-    const startDate = new Date(scheduleStartDate);
-    onBatchScheduleDates(startDate, intervalDays);
+    // 날짜와 시간을 합쳐서 Date 객체 생성
+    const startDateTime = new Date(`${scheduleStartDate}T${scheduleStartTime}`);
+    onBatchScheduleDates(startDateTime, intervalDays);
     setShowScheduleDate(false);
-    alert(`날짜가 ${intervalDays}일 간격으로 설정되었습니다.`);
+    alert(`날짜와 시간이 ${intervalDays}일 간격으로 설정되었습니다.`);
   };
 
   return (
@@ -324,6 +331,15 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
               />
             </div>
             <div>
+              <label className="block text-xs text-slate-400 mb-1">시작 시간</label>
+              <input
+                type="time"
+                value={scheduleStartTime}
+                onChange={(e) => setScheduleStartTime(e.target.value)}
+                className="w-full bg-[#1C2128] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-[#0EA5E9] focus:ring-1 focus:ring-[#0EA5E9] outline-none"
+              />
+            </div>
+            <div>
               <label className="block text-xs text-slate-400 mb-1">간격 (일)</label>
               <div className="flex gap-2">
                 <button
@@ -374,7 +390,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
               날짜 일괄 적용 ({allNicheDrafts.length}개)
             </button>
             <p className="text-[10px] text-slate-500 leading-relaxed">
-              생성 순서대로 {scheduleInterval}일 간격으로 날짜가 설정됩니다.
+              생성 순서대로 {scheduleInterval}일 간격, {scheduleStartTime} 시간으로 날짜가 설정됩니다.
             </p>
           </div>
         </div>
@@ -468,6 +484,8 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
                               }`}>
                                 <Icon name="Calendar" size={10} />
                                 {new Date(draft.scheduledDate).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
+                                {' '}
+                                {new Date(draft.scheduledDate).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}
                               </span>
                             )}
                           </div>
