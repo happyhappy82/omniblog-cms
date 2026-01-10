@@ -22,19 +22,29 @@ const App = () => {
   });
   const [nicheOrder, setNicheOrder] = useState<NicheType[]>(() => {
     const saved = localStorage.getItem('omni_nicheOrder');
+    const validNicheIds = NICHES.filter(n => n.id !== NicheType.AI).map(n => n.id);
+
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsedOrder = JSON.parse(saved) as NicheType[];
+        // 마이그레이션: HOSPITAL 제거, 유효한 niche만 유지, 누락된 niche 추가
+        const filtered = parsedOrder.filter(id =>
+          id !== 'HOSPITAL' && validNicheIds.includes(id)
+        );
+        // 누락된 niche 추가 (예: TRAVEL)
+        const missing = validNicheIds.filter(id => !filtered.includes(id));
+        return [...filtered, ...missing];
       } catch {
-        return NICHES.filter(n => n.id !== NicheType.AI).map(n => n.id);
+        return validNicheIds;
       }
     }
-    return NICHES.filter(n => n.id !== NicheType.AI).map(n => n.id);
+    return validNicheIds;
   });
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [settings, setSettings] = useState<AppSettings>({
     geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
+    imgbbApiKey: import.meta.env.VITE_IMGBB_API_KEY || '',
     nicheSettings: {
       [NicheType.AI]: {
         notionApiKey: import.meta.env.VITE_AI_NOTION_API_KEY || '',
@@ -91,6 +101,7 @@ const App = () => {
         // 구 버전 데이터 - 마이그레이션 필요
         const migratedSettings: AppSettings = {
           geminiApiKey: parsed.geminiApiKey || '',
+          imgbbApiKey: '',
           nicheSettings: {
             [NicheType.AI]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.TECH]: { notionApiKey: '', notionDatabaseId: '' },
@@ -107,6 +118,7 @@ const App = () => {
         const { naverSettings, ...rest } = parsed;
         setSettings({
           ...rest,
+          imgbbApiKey: rest.imgbbApiKey || '',
           nicheSettings: {
             [NicheType.AI]: { notionApiKey: '', notionDatabaseId: '' },
             ...rest.nicheSettings
@@ -116,10 +128,17 @@ const App = () => {
         // AI nicheSettings가 없는 경우 추가
         setSettings({
           ...parsed,
+          imgbbApiKey: parsed.imgbbApiKey || '',
           nicheSettings: {
             [NicheType.AI]: { notionApiKey: '', notionDatabaseId: '' },
             ...parsed.nicheSettings
           }
+        });
+      } else if (!parsed.imgbbApiKey) {
+        // imgbbApiKey가 없는 경우 추가 (기존 설정 마이그레이션)
+        setSettings({
+          ...parsed,
+          imgbbApiKey: ''
         });
       } else {
         setSettings(parsed);
@@ -957,9 +976,10 @@ const App = () => {
             {/* Column 2: Naver Editor (Only visible in AI Mode) */}
             {viewMode === 'AI' && (
               <div className="flex-1 min-w-0 bg-[#1e2329] border-r border-slate-800">
-                <NaverEditor 
+                <NaverEditor
                   content={currentDraft.naverContent || ''}
                   onChange={(val) => updateCurrentDraft('naverContent', val)}
+                  imgbbApiKey={settings.imgbbApiKey}
                 />
               </div>
             )}
@@ -972,6 +992,7 @@ const App = () => {
                  onGenerateNotion={handleNotionUpload}
                  isUploading={isUploading}
                  uploadSuccess={uploadSuccess}
+                 imgbbApiKey={settings.imgbbApiKey}
                />
             </div>
           </>
