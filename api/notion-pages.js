@@ -76,6 +76,17 @@ export default async function handler(req, res) {
       };
     }
 
+    const requestBody = {
+      parent: {
+        type: 'database_id',
+        database_id: databaseId
+      },
+      properties,
+      children: blocks
+    };
+
+    console.log('Notion API Request Body:', JSON.stringify(requestBody, null, 2));
+
     // Notion API 호출
     const response = await fetch('https://api.notion.com/v1/pages', {
       method: 'POST',
@@ -84,14 +95,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'Notion-Version': '2022-06-28'
       },
-      body: JSON.stringify({
-        parent: {
-          type: 'database_id',
-          database_id: databaseId
-        },
-        properties,
-        children: blocks
-      })
+      body: JSON.stringify(requestBody)
     });
 
     const data = await response.json();
@@ -103,6 +107,8 @@ export default async function handler(req, res) {
         error: data.message || `HTTP ${response.status}: ${response.statusText}`
       });
     }
+
+    console.log('Notion API Success Response:', JSON.stringify(data, null, 2));
 
     res.json({
       success: true,

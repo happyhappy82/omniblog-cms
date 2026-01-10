@@ -253,24 +253,34 @@ export async function createNotionPage(
     // 마크다운을 노션 블록으로 변환
     const blocks = markdownToNotionBlocks(content);
 
+    console.log('📅 Creating Notion page with scheduledDate:', scheduledDate);
+
     // 프록시 서버를 통해 노션 API 호출
     // 개발 환경: localhost:3007, 프로덕션: Vercel serverless function
     const apiUrl = import.meta.env.DEV
       ? 'http://localhost:3007/api/notion/pages'
       : '/api/notion-pages';
 
+    const requestData = {
+      apiKey,
+      databaseId,
+      title: title || '제목 없음',
+      blocks,
+      scheduledDate
+    };
+
+    console.log('📤 Sending to Notion API:', {
+      title: requestData.title,
+      scheduledDate: requestData.scheduledDate,
+      blocksCount: blocks.length
+    });
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        apiKey,
-        databaseId,
-        title: title || '제목 없음',
-        blocks,
-        scheduledDate
-      })
+      body: JSON.stringify(requestData)
     });
 
     const data = await response.json();
