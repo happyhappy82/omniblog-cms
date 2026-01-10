@@ -56,17 +56,13 @@ const App = () => {
         notionApiKey: import.meta.env.VITE_POLICY_NOTION_API_KEY || '',
         notionDatabaseId: import.meta.env.VITE_POLICY_NOTION_DATABASE_ID || ''
       },
-      [NicheType.HOSPITAL]: {
-        notionApiKey: import.meta.env.VITE_HOSPITAL_NOTION_API_KEY || '',
-        notionDatabaseId: import.meta.env.VITE_HOSPITAL_NOTION_DATABASE_ID || ''
+      [NicheType.TRAVEL]: {
+        notionApiKey: import.meta.env.VITE_TRAVEL_NOTION_API_KEY || '',
+        notionDatabaseId: import.meta.env.VITE_TRAVEL_NOTION_DATABASE_ID || ''
       },
       [NicheType.RESTAURANT]: {
         notionApiKey: import.meta.env.VITE_RESTAURANT_NOTION_API_KEY || '',
         notionDatabaseId: import.meta.env.VITE_RESTAURANT_NOTION_DATABASE_ID || ''
-      },
-      [NicheType.TRAVEL]: {
-        notionApiKey: import.meta.env.VITE_TRAVEL_NOTION_API_KEY || '',
-        notionDatabaseId: import.meta.env.VITE_TRAVEL_NOTION_DATABASE_ID || ''
       },
     }
   });
@@ -101,9 +97,8 @@ const App = () => {
             [NicheType.REAL_ESTATE]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.STOCK]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.POLICY]: { notionApiKey: '', notionDatabaseId: '' },
-            [NicheType.HOSPITAL]: { notionApiKey: '', notionDatabaseId: '' },
-            [NicheType.RESTAURANT]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.TRAVEL]: { notionApiKey: '', notionDatabaseId: '' },
+            [NicheType.RESTAURANT]: { notionApiKey: '', notionDatabaseId: '' },
           }
         };
         setSettings(migratedSettings);

@@ -69,19 +69,6 @@ export const NICHES: NicheConfig[] = [
     - 자주 묻는 질문(FAQ) 섹션을 만들어 독자의 궁금증을 미리 해소하세요.`
   },
   {
-    id: NicheType.HOSPITAL,
-    label: '병원',
-    icon: 'Stethoscope',
-    color: 'text-green-400',
-    description: '병원 방문 후기, 건강 검진, 질환 정보.',
-    systemInstruction: `당신은 따뜻한 마음을 가진 '건강/의학' 블로거입니다.
-    어조: 공감해주고 위로해주는 따뜻한 톤앤매너를 유지합니다. 전문 용어는 쉽게 풀어씁니다.
-    형식:
-    - 증상 발현 -> 병원 선택 이유 -> 진료 과정 -> 처방 및 후기 순으로 스토리텔링하세요.
-    - 병원 위치, 진료 시간, 주차 정보 등 실질적인 정보를 하단에 제공하세요.
-    - 치료의 효과는 개인차가 있음을 언급하세요.`
-  },
-  {
     id: NicheType.TRAVEL,
     label: '여행',
     icon: 'Plane',
