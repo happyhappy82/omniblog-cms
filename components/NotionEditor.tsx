@@ -15,8 +15,15 @@ interface NotionEditorProps {
 export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, onGenerateNotion, readOnly = false, isUploading = false, uploadSuccess = false, imgbbApiKey }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const floatingMenuRef = useRef<HTMLDivElement>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkText, setLinkText] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkSelection, setLinkSelection] = useState({ start: 0, end: 0 });
+  const [showFloatingMenu, setShowFloatingMenu] = useState(false);
+  const [floatingMenuPosition, setFloatingMenuPosition] = useState({ top: 0, left: 0 });
 
   // Image upload hook
   const { uploadState, handleFileSelect, handleDrop, handlePaste, clearError } = useImageUpload({
@@ -61,6 +68,24 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
     return () => textarea.removeEventListener('paste', pasteHandler);
   }, [handlePaste]);
 
+  // Hide floating menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showFloatingMenu) {
+        const target = e.target as Node;
+        const isTextarea = textareaRef.current?.contains(target);
+        const isFloatingMenu = floatingMenuRef.current?.contains(target);
+
+        if (!isTextarea && !isFloatingMenu) {
+          setShowFloatingMenu(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showFloatingMenu]);
+
   // Helper to insert markdown syntax at cursor
   const insertFormat = (prefix: string, suffix: string = '') => {
     if (!textareaRef.current) return;
@@ -73,11 +98,100 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
 
     const newText = `${before}${prefix}${selection}${suffix}${after}`;
     onChange(newText);
-    
+
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
         textareaRef.current.setSelectionRange(start + prefix.length, end + prefix.length);
+      }
+    }, 0);
+  };
+
+  // Handle text selection for floating menu
+  const handleTextSelection = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    if (!textareaRef.current || showPreview) return;
+
+    // setTimeout으로 선택이 완료된 후 확인
+    setTimeout(() => {
+      if (!textareaRef.current) return;
+
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+
+      // 텍스트가 선택되었는지 확인
+      if (end - start > 0) {
+        // 화면 경계 확인
+        const menuWidth = 100; // 메뉴 예상 너비
+        const menuHeight = 50; // 메뉴 예상 높이
+
+        let top = e.clientY - 60; // 선택 영역 위쪽에 표시
+        let left = e.clientX - 30; // 마우스 중앙 근처
+
+        // 화면 오른쪽 경계 체크
+        if (left + menuWidth > window.innerWidth) {
+          left = window.innerWidth - menuWidth - 10;
+        }
+
+        // 화면 왼쪽 경계 체크
+        if (left < 10) {
+          left = 10;
+        }
+
+        // 화면 위쪽 경계 체크
+        if (top < 10) {
+          top = e.clientY + 20; // 선택 영역 아래쪽에 표시
+        }
+
+        setFloatingMenuPosition({ top, left });
+        setShowFloatingMenu(true);
+      } else {
+        setShowFloatingMenu(false);
+      }
+    }, 10);
+  };
+
+  // Open link dialog
+  const openLinkDialog = () => {
+    if (!textareaRef.current) return;
+
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const text = textareaRef.current.value;
+    const selection = text.substring(start, end);
+
+    setLinkSelection({ start, end });
+    setLinkText(selection);
+    setLinkUrl('');
+    setShowLinkDialog(true);
+    setShowFloatingMenu(false); // floating menu 숨김
+  };
+
+  // Insert link
+  const insertLink = () => {
+    if (!textareaRef.current || !linkUrl) return;
+
+    // 현재 스크롤 위치 저장
+    const scrollTop = textareaRef.current.scrollTop;
+
+    const text = textareaRef.current.value;
+    const before = text.substring(0, linkSelection.start);
+    const after = text.substring(linkSelection.end);
+
+    const displayText = linkText || linkUrl;
+    const newText = `${before}[${displayText}](${linkUrl})${after}`;
+    onChange(newText);
+
+    setShowLinkDialog(false);
+    setLinkText('');
+    setLinkUrl('');
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const newPosition = linkSelection.start + displayText.length + linkUrl.length + 4;
+        textareaRef.current.setSelectionRange(newPosition, newPosition);
+        // 스크롤 위치 복원
+        textareaRef.current.scrollTop = scrollTop;
       }
     }, 0);
   };
@@ -166,7 +280,7 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
           
           <ToolbarButton icon="Table" onClick={() => {}} tooltip="표 (미지원)" />
           <ToolbarButton icon="Code" onClick={() => insertFormat('```\n', '\n```')} tooltip="코드 블록" />
-          <ToolbarButton icon="Link" onClick={() => insertFormat('[', '](url)')} tooltip="링크" />
+          <ToolbarButton icon="Link" onClick={openLinkDialog} tooltip="링크" />
           
           <div className="w-px h-3 bg-slate-700 mx-2"></div>
 
@@ -192,6 +306,99 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
            </button>
         </div>
       </div>
+
+      {/* Floating Menu */}
+      {showFloatingMenu && !showPreview && (
+        <div
+          ref={floatingMenuRef}
+          className="fixed bg-slate-800 border border-slate-700 rounded-lg shadow-xl flex items-center gap-1 p-1 z-40"
+          style={{
+            top: `${floatingMenuPosition.top}px`,
+            left: `${floatingMenuPosition.left}px`,
+          }}
+        >
+          <button
+            onClick={openLinkDialog}
+            className="p-2 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center gap-1"
+            title="링크 추가"
+          >
+            <Icon name="Link" size={16} />
+          </button>
+          <button
+            onClick={() => {
+              insertFormat('**', '**');
+              setShowFloatingMenu(false);
+            }}
+            className="p-2 rounded hover:bg-slate-700 text-slate-300 hover:text-white transition-colors font-bold text-sm"
+            title="굵게"
+          >
+            B
+          </button>
+        </div>
+      )}
+
+      {/* Link Dialog */}
+      {showLinkDialog && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-96 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold flex items-center gap-2">
+                <Icon name="Link" size={18} />
+                링크 추가
+              </h3>
+              <button onClick={() => setShowLinkDialog(false)} className="text-slate-400 hover:text-white">
+                <Icon name="X" size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">URL</label>
+                <input
+                  type="url"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
+                  autoFocus
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && linkUrl) {
+                      insertLink();
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">표시 텍스트</label>
+                <input
+                  type="text"
+                  value={linkText}
+                  onChange={(e) => setLinkText(e.target.value)}
+                  placeholder="링크로 표시할 텍스트"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setShowLinkDialog(false)}
+                className="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-600 transition-colors text-sm font-medium"
+              >
+                취소
+              </button>
+              <button
+                onClick={insertLink}
+                disabled={!linkUrl}
+                className="px-4 py-2 bg-cyan-500 text-white rounded hover:bg-cyan-600 transition-colors text-sm font-medium disabled:bg-slate-600 disabled:cursor-not-allowed"
+              >
+                추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content Area */}
       <div
@@ -280,6 +487,44 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
 
                 if (line.startsWith('[사진:')) return <div key={i} className="my-4 p-6 bg-slate-800/50 rounded-lg border border-slate-700 text-center text-sm text-slate-400 flex flex-col items-center gap-2"><Icon name="ImageIcon" />{line.replace(/\[사진:|\]|\(|\)/g, '')}</div>;
                 if (line.trim() === '') return <br key={i}/>;
+
+                // Enhanced link rendering in preview
+                const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                if (linkRegex.test(line)) {
+                  const parts: React.ReactNode[] = [];
+                  let lastIndex = 0;
+                  const matches = line.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g);
+
+                  for (const match of matches) {
+                    const [fullMatch, text, url] = match;
+                    const matchIndex = match.index || 0;
+
+                    if (matchIndex > lastIndex) {
+                      parts.push(line.substring(lastIndex, matchIndex));
+                    }
+
+                    parts.push(
+                      <a
+                        key={matchIndex}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-cyan-400 hover:text-cyan-300 underline"
+                      >
+                        {text}
+                      </a>
+                    );
+
+                    lastIndex = matchIndex + fullMatch.length;
+                  }
+
+                  if (lastIndex < line.length) {
+                    parts.push(line.substring(lastIndex));
+                  }
+
+                  return <p key={i} className="text-slate-300 leading-relaxed mb-4">{parts}</p>;
+                }
+
                 return <p key={i} className="text-slate-300 leading-relaxed mb-4">{line}</p>;
               })
             ) : (
@@ -291,6 +536,7 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
             ref={textareaRef}
             value={content}
             onChange={(e) => onChange(e.target.value)}
+            onMouseUp={handleTextSelection}
             readOnly={readOnly}
             placeholder="여기에 내용을 작성하거나 AI로 초안을 생성하세요...
 

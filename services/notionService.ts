@@ -4,6 +4,70 @@ interface NotionBlock {
   [key: string]: any;
 }
 
+interface RichText {
+  type: 'text';
+  text: {
+    content: string;
+    link?: {
+      url: string;
+    };
+  };
+}
+
+/**
+ * 마크다운 링크를 포함한 텍스트를 Notion rich_text 배열로 변환
+ */
+function parseTextWithLinks(text: string): RichText[] {
+  const richTextArray: RichText[] = [];
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    const [fullMatch, linkText, url] = match;
+    const matchIndex = match.index;
+
+    // 링크 이전의 일반 텍스트 추가
+    if (matchIndex > lastIndex) {
+      const beforeText = text.substring(lastIndex, matchIndex);
+      richTextArray.push({
+        type: 'text',
+        text: { content: beforeText }
+      });
+    }
+
+    // 링크 텍스트 추가 (link.url 포함)
+    richTextArray.push({
+      type: 'text',
+      text: {
+        content: linkText,
+        link: { url: url }
+      }
+    });
+
+    lastIndex = matchIndex + fullMatch.length;
+  }
+
+  // 마지막 링크 이후의 텍스트 추가
+  if (lastIndex < text.length) {
+    richTextArray.push({
+      type: 'text',
+      text: { content: text.substring(lastIndex) }
+    });
+  }
+
+  // 링크가 없으면 전체 텍스트를 하나의 rich_text로 반환
+  if (richTextArray.length === 0) {
+    richTextArray.push({
+      type: 'text',
+      text: { content: text }
+    });
+  }
+
+  return richTextArray;
+}
+
 /**
  * 마크다운 표를 파싱하여 노션 테이블 블록으로 변환
  */
@@ -48,12 +112,7 @@ function parseMarkdownTable(lines: string[], startIndex: number): { block: Notio
       object: 'block',
       type: 'table_row',
       table_row: {
-        cells: headerRow.map(cell => [
-          {
-            type: 'text',
-            text: { content: cell }
-          }
-        ])
+        cells: headerRow.map(cell => parseTextWithLinks(cell))
       }
     });
   }
@@ -70,12 +129,7 @@ function parseMarkdownTable(lines: string[], startIndex: number): { block: Notio
       object: 'block',
       type: 'table_row',
       table_row: {
-        cells: paddedRow.map(cell => [
-          {
-            type: 'text',
-            text: { content: cell }
-          }
-        ])
+        cells: paddedRow.map(cell => parseTextWithLinks(cell))
       }
     });
   });
@@ -145,7 +199,7 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
         object: 'block',
         type: 'heading_1',
         heading_1: {
-          rich_text: [{ type: 'text', text: { content: line.substring(2) } }]
+          rich_text: parseTextWithLinks(line.substring(2))
         }
       });
     }
@@ -155,7 +209,7 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
         object: 'block',
         type: 'heading_2',
         heading_2: {
-          rich_text: [{ type: 'text', text: { content: line.substring(3) } }]
+          rich_text: parseTextWithLinks(line.substring(3))
         }
       });
     }
@@ -165,7 +219,7 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
         object: 'block',
         type: 'heading_3',
         heading_3: {
-          rich_text: [{ type: 'text', text: { content: line.substring(4) } }]
+          rich_text: parseTextWithLinks(line.substring(4))
         }
       });
     }
@@ -175,7 +229,7 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
         object: 'block',
         type: 'bulleted_list_item',
         bulleted_list_item: {
-          rich_text: [{ type: 'text', text: { content: line.substring(2) } }]
+          rich_text: parseTextWithLinks(line.substring(2))
         }
       });
     }
@@ -185,7 +239,7 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
         object: 'block',
         type: 'numbered_list_item',
         numbered_list_item: {
-          rich_text: [{ type: 'text', text: { content: line.replace(/^\d+\.\s/, '') } }]
+          rich_text: parseTextWithLinks(line.replace(/^\d+\.\s/, ''))
         }
       });
     }
@@ -216,11 +270,12 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
       if (text.length > 2000) {
         // 2000자씩 분할
         for (let j = 0; j < text.length; j += 2000) {
+          const chunk = text.substring(j, j + 2000);
           blocks.push({
             object: 'block',
             type: 'paragraph',
             paragraph: {
-              rich_text: [{ type: 'text', text: { content: text.substring(j, j + 2000) } }]
+              rich_text: parseTextWithLinks(chunk)
             }
           });
         }
@@ -229,7 +284,7 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
           object: 'block',
           type: 'paragraph',
           paragraph: {
-            rich_text: [{ type: 'text', text: { content: text } }]
+            rich_text: parseTextWithLinks(text)
           }
         });
       }
@@ -275,6 +330,8 @@ export async function createNotionPage(
       blocksCount: blocks.length
     });
 
+    console.log('🔍 DEBUG - First 3 blocks:', JSON.stringify(blocks.slice(0, 3), null, 2));
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -285,13 +342,17 @@ export async function createNotionPage(
 
     const data = await response.json();
 
+    console.log('📥 Response from server:', data);
+
     if (!response.ok || !data.success) {
-      console.error('Notion API Error:', data);
+      console.error('❌ Notion API Error:', data);
       return {
         success: false,
         error: data.error || `HTTP ${response.status}: ${response.statusText}`
       };
     }
+
+    console.log('✅ Notion page created successfully!', data.pageUrl);
 
     return {
       success: true,

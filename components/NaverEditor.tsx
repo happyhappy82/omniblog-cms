@@ -12,6 +12,10 @@ export const NaverEditor: React.FC<NaverEditorProps> = ({ content, onChange, img
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [linkText, setLinkText] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkSelection, setLinkSelection] = useState({ start: 0, end: 0 });
 
   // Image upload hook
   const { uploadState, handleFileSelect, handleDrop, handlePaste, clearError } = useImageUpload({
@@ -80,6 +84,51 @@ export const NaverEditor: React.FC<NaverEditorProps> = ({ content, onChange, img
     alert('본문이 복사되었습니다.');
   };
 
+  // Open link dialog
+  const openLinkDialog = () => {
+    if (!textareaRef.current) return;
+
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const text = textareaRef.current.value;
+    const selection = text.substring(start, end);
+
+    setLinkSelection({ start, end });
+    setLinkText(selection);
+    setLinkUrl('');
+    setShowLinkDialog(true);
+  };
+
+  // Insert link
+  const insertLink = () => {
+    if (!textareaRef.current || !linkUrl) return;
+
+    // 현재 스크롤 위치 저장
+    const scrollTop = textareaRef.current.scrollTop;
+
+    const text = textareaRef.current.value;
+    const before = text.substring(0, linkSelection.start);
+    const after = text.substring(linkSelection.end);
+
+    const displayText = linkText || linkUrl;
+    const newText = `${before}[${displayText}](${linkUrl})${after}`;
+    onChange(newText);
+
+    setShowLinkDialog(false);
+    setLinkText('');
+    setLinkUrl('');
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const newPosition = linkSelection.start + displayText.length + linkUrl.length + 4;
+        textareaRef.current.setSelectionRange(newPosition, newPosition);
+        // 스크롤 위치 복원
+        textareaRef.current.scrollTop = scrollTop;
+      }
+    }, 0);
+  };
+
   const ToolbarButton = ({ icon, onClick, label }: { icon?: string, label?: string, onClick: () => void }) => (
     <button 
       onClick={onClick}
@@ -126,6 +175,7 @@ export const NaverEditor: React.FC<NaverEditorProps> = ({ content, onChange, img
          <ToolbarButton icon="AlignLeft" onClick={() => {}} />
          <ToolbarButton icon="List" onClick={() => insertFormat('- ')} />
          <div className="w-px h-3 bg-slate-600 mx-2"></div>
+         <ToolbarButton icon="Link" label="링크" onClick={openLinkDialog} />
          <ToolbarButton icon="ImageIcon" label="사진" onClick={() => fileInputRef.current?.click()} />
          <ToolbarButton icon="Smile" label="스티커" onClick={() => insertFormat('[스티커]')} />
 
@@ -138,6 +188,69 @@ export const NaverEditor: React.FC<NaverEditorProps> = ({ content, onChange, img
            className="hidden"
          />
       </div>
+
+      {/* Link Dialog */}
+      {showLinkDialog && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 w-96 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold flex items-center gap-2">
+                <Icon name="Link" size={18} />
+                링크 추가
+              </h3>
+              <button onClick={() => setShowLinkDialog(false)} className="text-slate-400 hover:text-white">
+                <Icon name="X" size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">URL</label>
+                <input
+                  type="url"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-green-500"
+                  autoFocus
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && linkUrl) {
+                      insertLink();
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">표시 텍스트</label>
+                <input
+                  type="text"
+                  value={linkText}
+                  onChange={(e) => setLinkText(e.target.value)}
+                  placeholder="링크로 표시할 텍스트"
+                  className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-green-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setShowLinkDialog(false)}
+                className="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-600 transition-colors text-sm font-medium"
+              >
+                취소
+              </button>
+              <button
+                onClick={insertLink}
+                disabled={!linkUrl}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm font-medium disabled:bg-slate-600 disabled:cursor-not-allowed"
+              >
+                추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Editor Area */}
       <div

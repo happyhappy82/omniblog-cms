@@ -55,35 +55,35 @@ export default async function handler(req, res) {
 
     // scheduledDate가 있으면 Date 속성 추가
     if (scheduledDate) {
-      // ISO 8601 형식으로 변환
-      const dateObj = new Date(scheduledDate);
+      try {
+        // ISO 8601 형식으로 변환
+        const dateObj = new Date(scheduledDate);
 
-      // 노션은 ISO 8601 형식을 요구: YYYY-MM-DDTHH:mm:ss.sssZ 또는 YYYY-MM-DD
-      // 시간이 있는 경우: 전체 ISO 문자열 사용
-      // 시간이 없는 경우: 날짜만 사용 (YYYY-MM-DD)
-      let dateStart;
+        // 유효한 날짜인지 확인
+        if (isNaN(dateObj.getTime())) {
+          console.error('Invalid scheduledDate:', scheduledDate);
+        } else {
+          // 노션 API는 ISO 8601 형식 요구
+          // 시간대 정보를 포함한 전체 ISO 문자열 사용
+          const dateStart = dateObj.toISOString();
 
-      if (scheduledDate.includes('T') || scheduledDate.includes(':')) {
-        // 시간 포함된 경우: ISO 8601 형식으로 변환
-        dateStart = dateObj.toISOString();
-      } else {
-        // 날짜만 있는 경우
-        dateStart = scheduledDate;
-      }
+          console.log('Setting Date property:', {
+            original: scheduledDate,
+            converted: dateStart,
+            dateObj: dateObj.toString()
+          });
 
-      console.log('Setting Date property:', {
-        original: scheduledDate,
-        converted: dateStart,
-        type: typeof dateStart
-      });
+          properties.Date = {
+            date: {
+              start: dateStart
+            }
+          };
 
-      properties.Date = {
-        date: {
-          start: dateStart
+          console.log('Final Date property:', JSON.stringify(properties.Date, null, 2));
         }
-      };
-
-      console.log('Date property object:', JSON.stringify(properties.Date, null, 2));
+      } catch (error) {
+        console.error('Error processing scheduledDate:', error);
+      }
     } else {
       console.log('No scheduledDate provided');
     }
@@ -112,6 +112,9 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    console.log('Notion API Response Status:', response.status);
+    console.log('Notion API Full Response:', JSON.stringify(data, null, 2));
+
     if (!response.ok) {
       console.error('Notion API Error:', data);
       return res.status(response.status).json({
@@ -120,7 +123,13 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log('Notion API Success Response:', JSON.stringify(data, null, 2));
+    // 성공 응답에서 properties 확인
+    if (data.properties && data.properties.Date) {
+      console.log('✅ Date property in response:', JSON.stringify(data.properties.Date, null, 2));
+    } else {
+      console.warn('⚠️ Date property NOT found in response!');
+      console.log('Available properties:', Object.keys(data.properties || {}));
+    }
 
     res.json({
       success: true,
