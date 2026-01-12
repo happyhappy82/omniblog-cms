@@ -152,6 +152,144 @@ function parseMarkdownTable(lines: string[], startIndex: number): { block: Notio
 }
 
 /**
+ * 들여쓰기 레벨 감지 (2칸 = 1레벨)
+ */
+function getIndentLevel(line: string): number {
+  const match = line.match(/^(\s*)/);
+  if (!match) return 0;
+  const spaces = match[1].length;
+  return Math.floor(spaces / 2);
+}
+
+/**
+ * 리스트 항목인지 확인하고 내용 추출
+ */
+function parseListItem(line: string): { isList: boolean; isNumbered: boolean; content: string; indentLevel: number } {
+  const indentLevel = getIndentLevel(line);
+  const trimmed = line.trim();
+
+  // 글머리 기호 목록
+  if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+    return {
+      isList: true,
+      isNumbered: false,
+      content: trimmed.substring(2),
+      indentLevel
+    };
+  }
+
+  // 번호 목록
+  const numberedMatch = trimmed.match(/^\d+\.\s(.+)$/);
+  if (numberedMatch) {
+    return {
+      isList: true,
+      isNumbered: true,
+      content: numberedMatch[1],
+      indentLevel
+    };
+  }
+
+  return { isList: false, isNumbered: false, content: '', indentLevel: 0 };
+}
+
+/**
+ * 중첩된 리스트를 처리하여 노션 블록 생성
+ */
+function processNestedLists(lines: string[], startIndex: number): { blocks: NotionBlock[]; endIndex: number } {
+  const result: NotionBlock[] = [];
+  const stack: { block: NotionBlock; level: number }[] = [];
+  let i = startIndex;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // 빈 줄이면 리스트 종료
+    if (line.trim() === '') {
+      i++;
+      break;
+    }
+
+    const listInfo = parseListItem(line);
+
+    // 리스트 항목이 아니면 종료
+    if (!listInfo.isList) {
+      break;
+    }
+
+    const blockType = listInfo.isNumbered ? 'numbered_list_item' : 'bulleted_list_item';
+    const newBlock: NotionBlock = {
+      object: 'block',
+      type: blockType,
+      [blockType]: {
+        rich_text: parseTextWithLinks(listInfo.content)
+      }
+    };
+
+    // 스택이 비어있거나 같은 레벨이면 결과에 추가
+    if (stack.length === 0 || listInfo.indentLevel === 0) {
+      // 이전 스택 정리
+      while (stack.length > 0) {
+        stack.pop();
+      }
+      result.push(newBlock);
+      stack.push({ block: newBlock, level: 0 });
+    }
+    // 들여쓰기가 증가했으면 이전 블록의 자식으로 추가
+    else if (listInfo.indentLevel > stack[stack.length - 1].level) {
+      const parent = stack[stack.length - 1].block;
+      const parentType = parent.type as string;
+
+      if (!parent[parentType].children) {
+        parent[parentType].children = [];
+      }
+      parent[parentType].children.push(newBlock);
+      stack.push({ block: newBlock, level: listInfo.indentLevel });
+    }
+    // 들여쓰기가 감소했으면 적절한 부모 찾기
+    else if (listInfo.indentLevel < stack[stack.length - 1].level) {
+      // 현재 레벨보다 높은 스택 항목 제거
+      while (stack.length > 0 && stack[stack.length - 1].level >= listInfo.indentLevel) {
+        stack.pop();
+      }
+
+      if (stack.length === 0 || listInfo.indentLevel === 0) {
+        result.push(newBlock);
+        stack.push({ block: newBlock, level: 0 });
+      } else {
+        const parent = stack[stack.length - 1].block;
+        const parentType = parent.type as string;
+
+        if (!parent[parentType].children) {
+          parent[parentType].children = [];
+        }
+        parent[parentType].children.push(newBlock);
+        stack.push({ block: newBlock, level: listInfo.indentLevel });
+      }
+    }
+    // 같은 레벨이면 형제로 추가
+    else {
+      if (stack.length === 1) {
+        result.push(newBlock);
+        stack[0] = { block: newBlock, level: 0 };
+      } else {
+        const parent = stack[stack.length - 2].block;
+        const parentType = parent.type as string;
+
+        if (!parent[parentType].children) {
+          parent[parentType].children = [];
+        }
+        parent[parentType].children.push(newBlock);
+        stack[stack.length - 1] = { block: newBlock, level: listInfo.indentLevel };
+      }
+    }
+
+    i++;
+  }
+
+  return { blocks: result, endIndex: i - 1 };
+}
+
+/**
  * 마크다운 텍스트를 노션 블록으로 변환
  */
 function markdownToNotionBlocks(markdown: string): NotionBlock[] {
@@ -223,25 +361,11 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
         }
       });
     }
-    // 글머리 기호 목록
-    else if (line.startsWith('- ') || line.startsWith('* ')) {
-      blocks.push({
-        object: 'block',
-        type: 'bulleted_list_item',
-        bulleted_list_item: {
-          rich_text: parseTextWithLinks(line.substring(2))
-        }
-      });
-    }
-    // 번호 목록
-    else if (/^\d+\.\s/.test(line)) {
-      blocks.push({
-        object: 'block',
-        type: 'numbered_list_item',
-        numbered_list_item: {
-          rich_text: parseTextWithLinks(line.replace(/^\d+\.\s/, ''))
-        }
-      });
+    // 리스트 항목 감지 (들여쓰기 포함)
+    else if (parseListItem(line).isList) {
+      const listResult = processNestedLists(lines, i);
+      blocks.push(...listResult.blocks);
+      i = listResult.endIndex;
     }
     // 코드 블록 시작
     else if (line.startsWith('```')) {
