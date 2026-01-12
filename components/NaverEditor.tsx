@@ -129,6 +129,29 @@ export const NaverEditor: React.FC<NaverEditorProps> = ({ content, onChange, img
     }, 0);
   };
 
+  // Remove all asterisks from content
+  const removeAsterisks = () => {
+    if (!textareaRef.current) return;
+
+    const scrollTop = textareaRef.current.scrollTop;
+    const cursorPosition = textareaRef.current.selectionStart;
+
+    // 모든 * 제거
+    const newText = content.replace(/\*/g, '');
+    onChange(newText);
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        // 커서 위치 조정 (제거된 * 개수만큼)
+        const removedCount = (content.substring(0, cursorPosition).match(/\*/g) || []).length;
+        const newPosition = Math.max(0, cursorPosition - removedCount);
+        textareaRef.current.setSelectionRange(newPosition, newPosition);
+        textareaRef.current.scrollTop = scrollTop;
+      }
+    }, 0);
+  };
+
   const ToolbarButton = ({ icon, onClick, label }: { icon?: string, label?: string, onClick: () => void }) => (
     <button 
       onClick={onClick}
@@ -149,14 +172,22 @@ export const NaverEditor: React.FC<NaverEditorProps> = ({ content, onChange, img
         </div>
 
         <div className="flex items-center gap-2">
-           <button 
+           <button
+             onClick={removeAsterisks}
+             className="px-3 py-1.5 bg-slate-700 text-amber-400 text-xs font-medium rounded hover:bg-slate-600 transition-colors flex items-center gap-1.5 border border-amber-900/20"
+             title="모든 * 문자 제거"
+           >
+             <span className="font-bold">*</span>
+             제거
+           </button>
+           <button
              onClick={copyToClipboard}
              className="px-3 py-1.5 border border-slate-600 text-slate-300 text-xs font-medium rounded hover:bg-slate-700 transition-colors flex items-center gap-1.5"
            >
              <Icon name="Copy" size={12} />
              본문 복사
            </button>
-           <button 
+           <button
              onClick={() => onChange('')}
              className="px-3 py-1.5 bg-[#3A2828] text-red-400 text-xs font-medium rounded hover:bg-red-900/30 transition-colors flex items-center gap-1.5 border border-red-900/20"
            >

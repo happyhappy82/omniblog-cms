@@ -196,6 +196,29 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
     }, 0);
   };
 
+  // Remove all asterisks from content
+  const removeAsterisks = () => {
+    if (!textareaRef.current) return;
+
+    const scrollTop = textareaRef.current.scrollTop;
+    const cursorPosition = textareaRef.current.selectionStart;
+
+    // 모든 * 제거
+    const newText = content.replace(/\*/g, '');
+    onChange(newText);
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        // 커서 위치 조정 (제거된 * 개수만큼)
+        const removedCount = (content.substring(0, cursorPosition).match(/\*/g) || []).length;
+        const newPosition = Math.max(0, cursorPosition - removedCount);
+        textareaRef.current.setSelectionRange(newPosition, newPosition);
+        textareaRef.current.scrollTop = scrollTop;
+      }
+    }, 0);
+  };
+
   const ToolbarButton = ({ icon, onClick, tooltip, label }: { icon?: string, label?: string, onClick: () => void, tooltip: string }) => (
     <button 
       onClick={onClick}
@@ -217,7 +240,15 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
         </div>
 
         <div className="flex items-center gap-3">
-           <button 
+           <button
+             onClick={removeAsterisks}
+             className="px-4 py-2 bg-slate-700 text-amber-400 text-xs font-medium rounded hover:bg-slate-600 transition-colors flex items-center gap-2 border border-amber-900/20"
+             title="모든 * 문자 제거"
+           >
+             <span className="font-bold">*</span>
+             제거
+           </button>
+           <button
              onClick={() => onChange('')}
              className="px-4 py-2 bg-[#3A2828] text-red-400 text-xs font-medium rounded hover:bg-red-900/30 hover:text-red-300 transition-colors flex items-center gap-2 border border-red-900/20"
            >
