@@ -193,6 +193,113 @@ function parseListItem(line: string): { isList: boolean; isNumbered: boolean; co
 }
 
 /**
+ * Q&A 토글 블록 처리
+ */
+function processQAToggle(lines: string[], startIndex: number): { block: NotionBlock; endIndex: number } | null {
+  const line = lines[startIndex];
+
+  // Q: 또는 Q. 로 시작하는지 확인
+  const qMatch = line.match(/^Q[:.]\s*(.+)$/);
+  if (!qMatch) return null;
+
+  const question = qMatch[1];
+  const answerBlocks: NotionBlock[] = [];
+  let i = startIndex + 1;
+
+  // 다음 Q: 또는 Q. 또는 빈 줄이 2번 연속 나올 때까지 답변 수집
+  while (i < lines.length) {
+    const currentLine = lines[i];
+
+    // 다음 질문이 시작되면 종료
+    if (currentLine.trim().match(/^Q[:.]/)) {
+      break;
+    }
+
+    // 빈 줄 건너뛰기
+    if (currentLine.trim() === '') {
+      i++;
+      continue;
+    }
+
+    // 답변 내용을 블록으로 변환
+    // 리스트 항목
+    if (parseListItem(currentLine).isList) {
+      const listResult = processNestedLists(lines, i);
+      answerBlocks.push(...listResult.blocks);
+      i = listResult.endIndex + 1;
+    }
+    // 이미지
+    else if (currentLine.match(/^!\[(.*?)\]\((.*?)\)$/)) {
+      const imageMatch = currentLine.match(/^!\[(.*?)\]\((.*?)\)$/);
+      if (imageMatch) {
+        const [, alt, url] = imageMatch;
+        if (url && url.trim() !== '') {
+          answerBlocks.push({
+            object: 'block',
+            type: 'image',
+            image: {
+              type: 'external',
+              external: { url: url.trim() }
+            }
+          } as any);
+        }
+      }
+      i++;
+    }
+    // 코드 블록
+    else if (currentLine.startsWith('```')) {
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      answerBlocks.push({
+        object: 'block',
+        type: 'code',
+        code: {
+          rich_text: [{ type: 'text', text: { content: codeLines.join('\n') } }],
+          language: 'plain text'
+        }
+      });
+      i++;
+    }
+    // 일반 텍스트
+    else {
+      answerBlocks.push({
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: parseTextWithLinks(currentLine)
+        }
+      });
+      i++;
+    }
+  }
+
+  // 토글 블록 생성
+  const toggleBlock: NotionBlock = {
+    object: 'block',
+    type: 'toggle',
+    toggle: {
+      rich_text: parseTextWithLinks(question),
+      children: answerBlocks.length > 0 ? answerBlocks : [{
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [{ type: 'text', text: { content: '' } }]
+        }
+      }]
+    }
+  };
+
+  return {
+    block: toggleBlock,
+    endIndex: i - 1
+  };
+}
+
+/**
  * 중첩된 리스트를 처리하여 노션 블록 생성
  */
 function processNestedLists(lines: string[], startIndex: number): { blocks: NotionBlock[]; endIndex: number } {
@@ -301,6 +408,16 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
 
     // 빈 줄 건너뛰기
     if (line.trim() === '') continue;
+
+    // Q&A 토글 처리 (Q: 또는 Q. 로 시작)
+    if (line.trim().match(/^Q[:.]/)) {
+      const toggleResult = processQAToggle(lines, i);
+      if (toggleResult) {
+        blocks.push(toggleResult.block);
+        i = toggleResult.endIndex;
+        continue;
+      }
+    }
 
     // 표 감지 및 처리
     if (line.trim().startsWith('|')) {
