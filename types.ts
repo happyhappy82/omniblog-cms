@@ -6,6 +6,7 @@ export enum NicheType {
   POLICY = 'POLICY',
   TRAVEL = 'TRAVEL',
   RESTAURANT = 'RESTAURANT',
+  SEO = 'SEO',
 }
 
 export interface NicheConfig {

@@ -6,6 +6,7 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { NotionEditor } from './components/NotionEditor';
 import { NaverEditor } from './components/NaverEditor';
 import { QueuePanel } from './components/QueuePanel';
+import { RestaurantSearchDialog } from './components/RestaurantSearchDialog';
 import { generateBlogDraft } from './services/geminiService';
 import { createNotionPage } from './services/notionService';
 
@@ -74,6 +75,10 @@ const App = () => {
         notionApiKey: import.meta.env.VITE_RESTAURANT_NOTION_API_KEY || '',
         notionDatabaseId: import.meta.env.VITE_RESTAURANT_NOTION_DATABASE_ID || ''
       },
+      [NicheType.SEO]: {
+        notionApiKey: import.meta.env.VITE_SEO_NOTION_API_KEY || '',
+        notionDatabaseId: import.meta.env.VITE_SEO_NOTION_DATABASE_ID || ''
+      },
     }
   });
   
@@ -85,6 +90,7 @@ const App = () => {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [deletedDraftsHistory, setDeletedDraftsHistory] = useState<Draft[]>([]);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [isRestaurantSearchOpen, setIsRestaurantSearchOpen] = useState(false);
 
   // --- Derived State ---
   const activeNiche = NICHES.find(n => n.id === activeNicheId)!;
@@ -110,6 +116,7 @@ const App = () => {
             [NicheType.POLICY]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.TRAVEL]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.RESTAURANT]: { notionApiKey: '', notionDatabaseId: '' },
+            [NicheType.SEO]: { notionApiKey: '', notionDatabaseId: '' },
           }
         };
         setSettings(migratedSettings);
@@ -138,7 +145,20 @@ const App = () => {
         // imgbbApiKey가 없는 경우 추가 (기존 설정 마이그레이션)
         setSettings({
           ...parsed,
-          imgbbApiKey: ''
+          imgbbApiKey: '',
+          nicheSettings: {
+            ...parsed.nicheSettings,
+            [NicheType.SEO]: parsed.nicheSettings?.[NicheType.SEO] || { notionApiKey: '', notionDatabaseId: '' }
+          }
+        });
+      } else if (!parsed.nicheSettings?.[NicheType.SEO]) {
+        // SEO nicheSettings가 없는 경우 추가
+        setSettings({
+          ...parsed,
+          nicheSettings: {
+            ...parsed.nicheSettings,
+            [NicheType.SEO]: { notionApiKey: '', notionDatabaseId: '' }
+          }
         });
       } else {
         setSettings(parsed);
@@ -378,6 +398,18 @@ const App = () => {
         setViewMode('NICHE');
       }
     }
+  };
+
+  const handleRestaurantSelect = (restaurantInfo: string) => {
+    if (!currentDraftId) return;
+
+    // 현재 draft의 context (참고 내용 및 문맥)에 맛집 정보 추가
+    const currentContext = currentDraft?.context || '';
+    const newContext = currentContext
+      ? `${currentContext}\n\n${restaurantInfo}`
+      : restaurantInfo;
+
+    updateCurrentDraft('context', newContext);
   };
 
   const updateCurrentDraft = (field: keyof Draft, value: string) => {
@@ -938,6 +970,22 @@ const App = () => {
                         </div>
                       )}
 
+                      {/* RESTAURANT 니치 전용: 맛집 검색 버튼 */}
+                      {activeNicheId === NicheType.RESTAURANT && (
+                        <div className="mb-4">
+                          <button
+                            onClick={() => setIsRestaurantSearchOpen(true)}
+                            className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-bold hover:from-orange-600 hover:to-red-600 transition-all flex items-center justify-center gap-2 shadow-lg"
+                          >
+                            <Icon name="Search" size={18} />
+                            🍽️ 맛집 검색하기
+                          </button>
+                          <p className="text-xs text-slate-400 mt-2 text-center">
+                            💡 네이버 플레이스에서 맛집 정보를 가져와 프롬프트에 추가합니다
+                          </p>
+                        </div>
+                      )}
+
                       {/* Notion 페르소나 */}
                       <div className="bg-[#161B22] border border-slate-700 rounded-lg p-4 relative group hover:border-[#0EA5E9]/50 transition-colors">
                         <div className="flex items-start gap-3 mb-3">
@@ -1032,6 +1080,13 @@ const App = () => {
           </div>
         )}
       </div>
+
+      {/* Restaurant Search Dialog */}
+      <RestaurantSearchDialog
+        isOpen={isRestaurantSearchOpen}
+        onClose={() => setIsRestaurantSearchOpen(false)}
+        onSelectRestaurant={handleRestaurantSelect}
+      />
     </div>
   );
 };
