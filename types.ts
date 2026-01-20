@@ -86,3 +86,33 @@ export interface ImageUploadState {
   progress: number;
   error: string | null;
 }
+
+// 지역 데이터 타입
+export interface RegionalData {
+  sido: string; // 시/도
+  sigungu: string; // 시/군/구
+  dong: string; // 읍/면/동
+  data: Record<string, string | number>; // 실제 데이터 (컬럼명: 값)
+}
+
+// 지역 데이터 저장 구조
+export interface RegionalDataStore {
+  fileName: string;
+  uploadDate: string;
+  columns: string[]; // 엑셀 컬럼명 목록
+  regions: RegionalData[]; // 전체 지역 데이터
+}
+
+// 컬럼 매핑 딕셔너리 (학습형)
+export interface ColumnMappingDictionary {
+  [columnName: string]: 'sido' | 'sigungu' | 'dong' | 'other';
+}
+
+// 필수 필드 매핑
+export interface RequiredFieldMapping {
+  sido: string | null;    // 시/도 컬럼명
+  sigungu: string | null; // 시/군/구 컬럼명
+  dong: string | null;    // 읍/면/동 컬럼명
+  eupMyeon?: string | null; // 부동산 전용: 읍/면 컬럼명
+  dongRi?: string | null;   // 부동산 전용: 동/리 컬럼명
+}

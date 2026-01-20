@@ -7,8 +7,11 @@ import { NotionEditor } from './components/NotionEditor';
 import { NaverEditor } from './components/NaverEditor';
 import { QueuePanel } from './components/QueuePanel';
 import { RestaurantSearchDialog } from './components/RestaurantSearchDialog';
+import { RegionalDataManager } from './components/RegionalDataManager';
 import { generateBlogDraft } from './services/geminiService';
 import { createNotionPage } from './services/notionService';
+import { RegionalData } from './types';
+import { formatRegionalDataAsText, formatGroupedRegionalData, groupRegionsByLocation } from './utils/fileParser';
 
 const App = () => {
   // --- State Management ---
@@ -410,6 +413,61 @@ const App = () => {
       : restaurantInfo;
 
     updateCurrentDraft('context', newContext);
+  };
+
+  const handleRegionalDataAdd = (text: string) => {
+    if (!currentDraftId) return;
+
+    // 현재 draft의 context에 지역 데이터 추가
+    const currentContext = currentDraft?.context || '';
+    const newContext = currentContext
+      ? `${currentContext}\n\n${text}`
+      : text;
+
+    updateCurrentDraft('context', newContext);
+  };
+
+  const handleRegionalBulkGenerate = (regions: RegionalData[], columns: string[]) => {
+    const now = Date.now();
+    const nicheSettings = settings.nicheSettings[activeNicheId];
+
+    // 지역별로 그룹화 (같은 지역의 여러 업소를 하나로)
+    const grouped = groupRegionsByLocation(regions);
+    const newDrafts: Draft[] = [];
+
+    let index = 0;
+    grouped.forEach((regionGroup, key) => {
+      const [sido, sigungu, dong] = key.split('|');
+      const title = `${sido} ${sigungu} ${dong} 상권 분석 및 SEO 가이드`;
+
+      // 여러 업소가 있으면 통합 포맷, 하나만 있으면 단일 포맷
+      const context = regionGroup.length > 1
+        ? formatGroupedRegionalData(regionGroup, columns)
+        : formatRegionalDataAsText(regionGroup[0], columns);
+
+      newDrafts.push({
+        id: crypto.randomUUID(),
+        nicheId: activeNicheId,
+        title: title,
+        context: context,
+        userPrompt: nicheSettings?.defaultPrompt || '',
+        naverPrompt: nicheSettings?.defaultNaverPrompt || '',
+        content: '',
+        naverContent: '',
+        status: 'idle',
+        createdAt: now + index,
+        lastModified: now + index
+      });
+
+      index++;
+    });
+
+    setDrafts(prev => [...newDrafts, ...prev]);
+    if (newDrafts.length > 0) {
+      setCurrentDraftId(newDrafts[0].id);
+    }
+
+    alert(`${newDrafts.length}개의 지역별 초안이 생성되었습니다.`);
   };
 
   const updateCurrentDraft = (field: keyof Draft, value: string) => {
@@ -983,6 +1041,28 @@ const App = () => {
                           <p className="text-xs text-slate-400 mt-2 text-center">
                             💡 네이버 플레이스에서 맛집 정보를 가져와 프롬프트에 추가합니다
                           </p>
+                        </div>
+                      )}
+
+                      {/* SEO 니치 전용: 지역 데이터 관리 */}
+                      {activeNicheId === NicheType.SEO && (
+                        <div className="mb-4">
+                          <RegionalDataManager
+                            onAddToContext={handleRegionalDataAdd}
+                            onBulkGenerate={handleRegionalBulkGenerate}
+                            dataType="commercial"
+                          />
+                        </div>
+                      )}
+
+                      {/* REAL_ESTATE 니치 전용: 아파트 단지 데이터 관리 */}
+                      {activeNicheId === NicheType.REAL_ESTATE && (
+                        <div className="mb-4">
+                          <RegionalDataManager
+                            onAddToContext={handleRegionalDataAdd}
+                            onBulkGenerate={handleRegionalBulkGenerate}
+                            dataType="apartment"
+                          />
                         </div>
                       )}
 

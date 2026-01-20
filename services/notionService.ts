@@ -12,52 +12,32 @@ interface RichText {
       url: string;
     };
   };
+  annotations?: {
+    bold?: boolean;
+    italic?: boolean;
+    strikethrough?: boolean;
+    underline?: boolean;
+    code?: boolean;
+    color?: string;
+  };
 }
 
 /**
- * 마크다운 링크를 포함한 텍스트를 Notion rich_text 배열로 변환
+ * 마크다운 텍스트를 파싱하여 Notion rich_text 배열로 변환
+ * 지원 형식: **볼드**, __밑줄__, [링크](url)
  */
 function parseTextWithLinks(text: string): RichText[] {
   const richTextArray: RichText[] = [];
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
 
-  let lastIndex = 0;
-  let match;
+  // 마크다운 패턴: 링크, 볼드, 밑줄
+  // 순서 중요: 링크를 먼저 처리한 후 볼드와 밑줄 처리
+  const segments = parseFormattedText(text);
 
-  while ((match = linkRegex.exec(text)) !== null) {
-    const [fullMatch, linkText, url] = match;
-    const matchIndex = match.index;
-
-    // 링크 이전의 일반 텍스트 추가
-    if (matchIndex > lastIndex) {
-      const beforeText = text.substring(lastIndex, matchIndex);
-      richTextArray.push({
-        type: 'text',
-        text: { content: beforeText }
-      });
-    }
-
-    // 링크 텍스트 추가 (link.url 포함)
-    richTextArray.push({
-      type: 'text',
-      text: {
-        content: linkText,
-        link: { url: url }
-      }
-    });
-
-    lastIndex = matchIndex + fullMatch.length;
+  for (const segment of segments) {
+    richTextArray.push(segment);
   }
 
-  // 마지막 링크 이후의 텍스트 추가
-  if (lastIndex < text.length) {
-    richTextArray.push({
-      type: 'text',
-      text: { content: text.substring(lastIndex) }
-    });
-  }
-
-  // 링크가 없으면 전체 텍스트를 하나의 rich_text로 반환
+  // 빈 배열이면 기본 텍스트 추가
   if (richTextArray.length === 0) {
     richTextArray.push({
       type: 'text',
@@ -66,6 +46,168 @@ function parseTextWithLinks(text: string): RichText[] {
   }
 
   return richTextArray;
+}
+
+/**
+ * 텍스트를 파싱하여 포맷팅된 세그먼트로 분할
+ */
+function parseFormattedText(text: string): RichText[] {
+  const result: RichText[] = [];
+  let currentIndex = 0;
+
+  // 모든 포맷팅 마커를 찾는 정규식
+  // 1. 링크: [text](url)
+  // 2. 볼드: **text**
+  // 3. 밑줄: __text__
+  const combinedRegex = /(\[([^\]]+)\]\(([^)]+)\))|(\*\*([^*]+)\*\*)|(__([^_]+)__)/g;
+
+  let match;
+  while ((match = combinedRegex.exec(text)) !== null) {
+    const [fullMatch] = match;
+    const matchIndex = match.index;
+
+    // 이전 일반 텍스트 추가
+    if (matchIndex > currentIndex) {
+      const plainText = text.substring(currentIndex, matchIndex);
+      result.push({
+        type: 'text',
+        text: { content: plainText }
+      });
+    }
+
+    // 링크인 경우
+    if (match[1]) {
+      const linkText = match[2];
+      const url = match[3];
+
+      // 링크 텍스트 내부의 볼드/밑줄 처리
+      const formattedLinkSegments = parseInlineFormatting(linkText);
+
+      for (const segment of formattedLinkSegments) {
+        result.push({
+          type: 'text',
+          text: {
+            content: segment.text.content,
+            link: { url }
+          },
+          annotations: segment.annotations
+        });
+      }
+    }
+    // 볼드인 경우
+    else if (match[4]) {
+      const boldText = match[5];
+
+      // 볼드 텍스트 내부의 밑줄 처리
+      const innerSegments = parseInlineFormatting(boldText);
+
+      for (const segment of innerSegments) {
+        result.push({
+          type: 'text',
+          text: { content: segment.text.content },
+          annotations: {
+            ...segment.annotations,
+            bold: true
+          }
+        });
+      }
+    }
+    // 밑줄인 경우
+    else if (match[6]) {
+      const underlineText = match[7];
+
+      // 밑줄 텍스트 내부의 볼드 처리
+      const innerSegments = parseInlineFormatting(underlineText);
+
+      for (const segment of innerSegments) {
+        result.push({
+          type: 'text',
+          text: { content: segment.text.content },
+          annotations: {
+            ...segment.annotations,
+            underline: true
+          }
+        });
+      }
+    }
+
+    currentIndex = matchIndex + fullMatch.length;
+  }
+
+  // 마지막 일반 텍스트 추가
+  if (currentIndex < text.length) {
+    const remainingText = text.substring(currentIndex);
+    result.push({
+      type: 'text',
+      text: { content: remainingText }
+    });
+  }
+
+  return result;
+}
+
+/**
+ * 인라인 포맷팅 처리 (중첩된 볼드/밑줄)
+ */
+function parseInlineFormatting(text: string): RichText[] {
+  const result: RichText[] = [];
+  let currentIndex = 0;
+
+  // 볼드와 밑줄만 처리
+  const inlineRegex = /(\*\*([^*]+)\*\*)|(__([^_]+)__)/g;
+
+  let match;
+  while ((match = inlineRegex.exec(text)) !== null) {
+    const [fullMatch] = match;
+    const matchIndex = match.index;
+
+    // 이전 일반 텍스트 추가
+    if (matchIndex > currentIndex) {
+      const plainText = text.substring(currentIndex, matchIndex);
+      result.push({
+        type: 'text',
+        text: { content: plainText }
+      });
+    }
+
+    // 볼드인 경우
+    if (match[1]) {
+      result.push({
+        type: 'text',
+        text: { content: match[2] },
+        annotations: { bold: true }
+      });
+    }
+    // 밑줄인 경우
+    else if (match[3]) {
+      result.push({
+        type: 'text',
+        text: { content: match[4] },
+        annotations: { underline: true }
+      });
+    }
+
+    currentIndex = matchIndex + fullMatch.length;
+  }
+
+  // 마지막 일반 텍스트 추가
+  if (currentIndex < text.length) {
+    const remainingText = text.substring(currentIndex);
+    result.push({
+      type: 'text',
+      text: { content: remainingText }
+    });
+  }
+
+  // 포맷팅이 없으면 전체 텍스트 반환
+  if (result.length === 0) {
+    result.push({
+      type: 'text',
+      text: { content: text }
+    });
+  }
+
+  return result;
 }
 
 /**
