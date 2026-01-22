@@ -178,27 +178,47 @@ app.post('/api/keyword-analysis', async (req, res) => {
 
     const data = await response.json();
 
+    console.log('DataForSEO Response:', JSON.stringify(data, null, 2));
+
+    // Check task-level status first (more specific errors)
+    const tasks = data.tasks || [];
+    if (tasks.length > 0) {
+      const task = tasks[0];
+      if (task.status_code !== 20000) {
+        const errorMsg = task.status_code === 40200
+          ? 'DataForSEO 크레딧이 부족합니다. 계정을 충전해주세요.'
+          : `${task.status_message || 'Unknown error'} (code: ${task.status_code})`;
+        console.error('DataForSEO Task Error:', task.status_message, task.status_code);
+        return res.status(400).json({ error: errorMsg });
+      }
+    }
+
+    // Check HTTP response
     if (!response.ok) {
-      console.error('DataForSEO API Error:', data);
+      console.error('DataForSEO HTTP Error:', response.status);
       return res.status(response.status).json({
-        error: data.status_message || 'DataForSEO API request failed'
+        error: `HTTP Error: ${response.status}`
       });
     }
 
     // Check for API-level errors
     if (data.status_code !== 20000) {
       return res.status(400).json({
-        error: data.status_message || 'DataForSEO API returned an error'
+        error: `API Error: ${data.status_message || 'Unknown error'} (code: ${data.status_code})`
       });
     }
 
     // Extract keywords from response
-    const tasks = data.tasks || [];
-    if (tasks.length === 0 || !tasks[0].result) {
+    if (tasks.length === 0) {
       return res.status(200).json({ keywords: [] });
     }
 
-    const result = tasks[0].result[0];
+    const task = tasks[0];
+    if (!task.result || task.result.length === 0) {
+      return res.status(200).json({ keywords: [] });
+    }
+
+    const result = task.result[0];
     const items = result?.items || [];
 
     // Transform and sort by search volume
