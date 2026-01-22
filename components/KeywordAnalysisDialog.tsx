@@ -283,10 +283,10 @@ export const KeywordAnalysisDialog: React.FC<KeywordAnalysisDialogProps> = ({
                           {kw.keyword}
                         </div>
                         <div className="col-span-2 text-sm text-slate-300 text-right">
-                          {formatNumber(kw.searchVolume)}
+                          {kw.searchVolume > 0 ? formatNumber(kw.searchVolume) : '-'}
                         </div>
                         <div className="col-span-2 text-sm text-slate-300 text-right">
-                          ${kw.cpc.toFixed(2)}
+                          {kw.cpc > 0 ? `$${kw.cpc.toFixed(2)}` : '-'}
                         </div>
                         <div className="col-span-2 flex justify-center">
                           <button
