@@ -96,13 +96,7 @@ export const KeywordAnalysisDialog: React.FC<KeywordAnalysisDialogProps> = ({
   };
 
   const formatNumber = (num: number): string => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M';
-    }
-    if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K';
-    }
-    return num.toString();
+    return num.toLocaleString();
   };
 
   const getCompetitionColor = (level: string): string => {
@@ -223,7 +217,7 @@ export const KeywordAnalysisDialog: React.FC<KeywordAnalysisDialogProps> = ({
               <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-800/50 rounded-t-lg text-xs font-bold text-slate-400">
                 <div className="col-span-1"></div>
                 <div className="col-span-5">키워드</div>
-                <div className="col-span-2 text-right">검색량</div>
+                <div className="col-span-2 text-right">월 검색량</div>
                 <div className="col-span-2 text-right">CPC ($)</div>
                 <div className="col-span-2 text-center">경쟁도</div>
               </div>
