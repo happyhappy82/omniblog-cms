@@ -130,3 +130,13 @@ export interface LoginDialogProps {
   isLoading: boolean;
   error: string | null;
 }
+
+// 제품 정보 타입 (Tech 플랫폼용)
+export interface ProductInfo {
+  id: string;
+  name: string;
+  price: string;
+  coupangLink: string;
+  specs: string;
+  features: string;
+}

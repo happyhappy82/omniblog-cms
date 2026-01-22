@@ -16,6 +16,7 @@ import { formatRegionalDataAsText, formatGroupedRegionalData, groupRegionsByLoca
 import { useAuth } from './hooks/useAuth';
 import { LoginDialog } from './components/LoginDialog';
 import { LoadingScreen } from './components/LoadingScreen';
+import { ProductInfoManager } from './components/ProductInfoManager';
 
 const App = () => {
   // --- Authentication State ---
@@ -1061,6 +1062,13 @@ const App = () => {
                           <p className="mt-2 text-xs text-slate-500 italic">
                             💡 이 프롬프트는 AI 플랫폼의 모든 글에 자동으로 적용됩니다
                           </p>
+                        </div>
+                      )}
+
+                      {/* TECH 니치 전용: 제품 정보 추가 */}
+                      {activeNicheId === NicheType.TECH && (
+                        <div className="mb-4">
+                          <ProductInfoManager onAddToContext={handleRegionalDataAdd} />
                         </div>
                       )}
 
