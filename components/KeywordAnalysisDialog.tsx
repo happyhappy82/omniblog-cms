@@ -135,32 +135,6 @@ export const KeywordAnalysisDialog: React.FC<KeywordAnalysisDialogProps> = ({
     return num.toLocaleString();
   };
 
-  const getCompetitionColor = (level: string): string => {
-    switch (level?.toUpperCase()) {
-      case 'LOW':
-        return 'text-green-400 bg-green-900/30';
-      case 'MEDIUM':
-        return 'text-yellow-400 bg-yellow-900/30';
-      case 'HIGH':
-        return 'text-red-400 bg-red-900/30';
-      default:
-        return 'text-slate-400 bg-slate-800';
-    }
-  };
-
-  const getCompetitionLabel = (level: string): string => {
-    switch (level?.toUpperCase()) {
-      case 'LOW':
-        return '낮음';
-      case 'MEDIUM':
-        return '중간';
-      case 'HIGH':
-        return '높음';
-      default:
-        return '-';
-    }
-  };
-
   // 선택된 키워드들에 대한 제목 생성
   const generateTitles = (): { keyword: string; title: string; templateId: string }[] => {
     const titles: { keyword: string; title: string; templateId: string }[] = [];
@@ -282,7 +256,7 @@ export const KeywordAnalysisDialog: React.FC<KeywordAnalysisDialogProps> = ({
                     <div className="col-span-5">키워드</div>
                     <div className="col-span-2 text-right">월 검색량</div>
                     <div className="col-span-2 text-right">CPC</div>
-                    <div className="col-span-2 text-center">경쟁도</div>
+                    <div className="col-span-2 text-center">구글검색</div>
                   </div>
 
                   {/* Keyword List */}
@@ -315,9 +289,16 @@ export const KeywordAnalysisDialog: React.FC<KeywordAnalysisDialogProps> = ({
                           ${kw.cpc.toFixed(2)}
                         </div>
                         <div className="col-span-2 flex justify-center">
-                          <span className={`px-2 py-0.5 text-xs font-medium rounded ${getCompetitionColor(kw.competitionLevel)}`}>
-                            {getCompetitionLabel(kw.competitionLevel)}
-                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(`https://www.google.com/search?q=${encodeURIComponent(kw.keyword)}`, '_blank');
+                            }}
+                            className="p-1.5 hover:bg-slate-600 rounded transition-colors"
+                            title="구글에서 검색"
+                          >
+                            <Icon name="Search" size={16} className="text-slate-400" />
+                          </button>
                         </div>
                       </div>
                     ))}
