@@ -8,6 +8,7 @@ import { NaverEditor } from './components/NaverEditor';
 import { QueuePanel } from './components/QueuePanel';
 import { RestaurantSearchDialog } from './components/RestaurantSearchDialog';
 import { RegionalDataManager } from './components/RegionalDataManager';
+import { KeywordAnalysisDialog } from './components/KeywordAnalysisDialog';
 import { generateBlogDraft } from './services/geminiService';
 import { createNotionPage } from './services/notionService';
 import { RegionalData } from './types';
@@ -101,6 +102,7 @@ const App = () => {
   const [deletedDraftsHistory, setDeletedDraftsHistory] = useState<Draft[]>([]);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [isRestaurantSearchOpen, setIsRestaurantSearchOpen] = useState(false);
+  const [isKeywordAnalysisOpen, setIsKeywordAnalysisOpen] = useState(false);
 
   // --- Derived State ---
   const activeNiche = NICHES.find(n => n.id === activeNicheId)!;
@@ -961,6 +963,7 @@ const App = () => {
         onAddTopics={handleAddTopics}
         onDeleteDraft={handleDeleteDraft}
         onBatchScheduleDates={handleBatchScheduleDates}
+        onOpenKeywordAnalysis={() => setIsKeywordAnalysisOpen(true)}
       />
 
       {/* 3. Main Workspace */}
@@ -1199,6 +1202,13 @@ const App = () => {
         isOpen={isRestaurantSearchOpen}
         onClose={() => setIsRestaurantSearchOpen(false)}
         onSelectRestaurant={handleRestaurantSelect}
+      />
+
+      {/* Keyword Analysis Dialog */}
+      <KeywordAnalysisDialog
+        isOpen={isKeywordAnalysisOpen}
+        onClose={() => setIsKeywordAnalysisOpen(false)}
+        onAddKeywords={handleAddTopics}
       />
     </div>
   );

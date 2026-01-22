@@ -1,14 +1,14 @@
 import React from 'react';
-import { 
-  Cpu, 
-  Map, 
-  Utensils, 
-  Briefcase, 
-  Settings, 
-  Plus, 
-  Save, 
-  Trash2, 
-  Wand2, 
+import {
+  Cpu,
+  Map,
+  Utensils,
+  Briefcase,
+  Settings,
+  Plus,
+  Save,
+  Trash2,
+  Wand2,
   Send,
   Bold,
   Italic,
@@ -39,7 +39,9 @@ import {
   Building,
   TrendingUp,
   Landmark,
-  Stethoscope
+  Stethoscope,
+  Search,
+  X
 } from 'lucide-react';
 
 const icons = {
@@ -47,7 +49,7 @@ const icons = {
   Bold, Italic, List, ListOrdered, Heading1, Heading2, ImageIcon, Check, ChevronRight, Loader2, FileText,
   ArrowLeftRight, RotateCcw, UserCircle, Square, CheckSquare, Code, Link, Table, Eye, PenLine,
   Underline, AlignLeft, Smile, Copy, Sparkles,
-  Building, TrendingUp, Landmark, Stethoscope
+  Building, TrendingUp, Landmark, Stethoscope, Search, X
 };
 
 interface IconProps {

@@ -13,6 +13,7 @@ interface QueuePanelProps {
   onAddTopics: (topics: string[]) => void;
   onDeleteDraft: (draftId: string) => void;
   onBatchScheduleDates: (startDate: Date, intervalDays: number) => void;
+  onOpenKeywordAnalysis: () => void;
 }
 
 const STATUS_CONFIG = {
@@ -33,6 +34,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   onAddTopics,
   onDeleteDraft,
   onBatchScheduleDates,
+  onOpenKeywordAnalysis,
 }) => {
   const [showAddTopics, setShowAddTopics] = useState(false);
   const [topicsText, setTopicsText] = useState('');
@@ -191,7 +193,14 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
           </div>
         </div>
       ) : (
-        <div className="p-4 border-b border-slate-800/50">
+        <div className="p-4 border-b border-slate-800/50 space-y-2">
+          <button
+            onClick={onOpenKeywordAnalysis}
+            className="w-full py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-2 border border-purple-600/30"
+          >
+            <Icon name="Search" size={14} />
+            키워드 분석
+          </button>
           <button
             onClick={() => setShowAddTopics(true)}
             className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
