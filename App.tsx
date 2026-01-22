@@ -12,8 +12,15 @@ import { generateBlogDraft } from './services/geminiService';
 import { createNotionPage } from './services/notionService';
 import { RegionalData } from './types';
 import { formatRegionalDataAsText, formatGroupedRegionalData, groupRegionsByLocation } from './utils/fileParser';
+import { useAuth } from './hooks/useAuth';
+import { LoginDialog } from './components/LoginDialog';
+import { LoadingScreen } from './components/LoadingScreen';
 
 const App = () => {
+  // --- Authentication State ---
+  const { isAuthenticated, isLoading: authLoading, login, logout } = useAuth();
+  const [loginError, setLoginError] = useState<string | null>(null);
+
   // --- State Management ---
   // localStorage에서 초기값 복원
   const [viewMode, setViewMode] = useState<'AI' | 'NICHE'>(() => {
@@ -862,6 +869,32 @@ const App = () => {
     }
   };
 
+  // --- Authentication Checks ---
+  // 인증 확인 로딩 중
+  if (authLoading) {
+    return <LoadingScreen />;
+  }
+
+  // 인증되지 않은 경우
+  if (!isAuthenticated) {
+    return (
+      <LoginDialog
+        isOpen={true}
+        onLogin={async (password) => {
+          setLoginError(null);
+          const success = await login(password);
+          if (!success) {
+            setLoginError('비밀번호가 올바르지 않습니다');
+          }
+          return success;
+        }}
+        isLoading={authLoading}
+        error={loginError}
+      />
+    );
+  }
+
+  // --- Main App Render ---
   return (
     <div className="flex h-screen w-full bg-[#111418] text-slate-100 font-sans">
       <SettingsDialog 

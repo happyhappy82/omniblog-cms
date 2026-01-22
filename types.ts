@@ -116,3 +116,17 @@ export interface RequiredFieldMapping {
   eupMyeon?: string | null; // 부동산 전용: 읍/면 컬럼명
   dongRi?: string | null;   // 부동산 전용: 동/리 컬럼명
 }
+
+// 인증 관련 타입
+export interface AuthSession {
+  isAuthenticated: boolean;
+  timestamp: number;
+  passwordHash: string;
+}
+
+export interface LoginDialogProps {
+  isOpen: boolean;
+  onLogin: (password: string) => Promise<boolean>;
+  isLoading: boolean;
+  error: string | null;
+}
