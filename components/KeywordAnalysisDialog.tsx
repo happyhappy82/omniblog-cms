@@ -197,7 +197,7 @@ export const KeywordAnalysisDialog: React.FC<KeywordAnalysisDialogProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">키워드 분석</h2>
-              <p className="text-xs text-slate-400">DataForSEO API를 통한 관련 키워드 분석</p>
+              <p className="text-xs text-slate-400">Google 자동완성 기반 관련 키워드 분석</p>
             </div>
           </div>
           <button
@@ -382,10 +382,10 @@ export const KeywordAnalysisDialog: React.FC<KeywordAnalysisDialogProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            window.open(`https://www.google.com/search?q=${encodeURIComponent(item.title)}`, '_blank');
+                            window.open(`https://www.google.com/search?q=${encodeURIComponent(item.keyword)}`, '_blank');
                           }}
                           className="p-1.5 hover:bg-slate-600 rounded transition-colors flex-shrink-0"
-                          title="구글에서 검색"
+                          title="구글에서 키워드 검색"
                         >
                           <Icon name="Search" size={14} className="text-slate-400" />
                         </button>

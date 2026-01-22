@@ -1,5 +1,4 @@
-// Vercel Serverless Function for DataForSEO API
-// Related Keywords API: https://docs.dataforseo.com/v3/dataforseo_labs/google/related_keywords/live
+// Vercel Serverless Function - Google 자동완성 API 사용
 
 export default async function handler(req, res) {
   // CORS headers
@@ -21,92 +20,40 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Keyword is required' });
   }
 
-  const DATAFORSEO_LOGIN = process.env.DATAFORSEO_LOGIN;
-  const DATAFORSEO_PASSWORD = process.env.DATAFORSEO_PASSWORD;
-
-  if (!DATAFORSEO_LOGIN || !DATAFORSEO_PASSWORD) {
-    return res.status(500).json({ error: 'DataForSEO API credentials not configured' });
-  }
-
   try {
-    // Base64 encode credentials
-    const credentials = Buffer.from(`${DATAFORSEO_LOGIN}:${DATAFORSEO_PASSWORD}`).toString('base64');
+    console.log('Keyword analysis request:', keyword);
 
-    // DataForSEO Related Keywords API
-    const response = await fetch('https://api.dataforseo.com/v3/dataforseo_labs/google/related_keywords/live', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify([
-        {
-          keyword: keyword,
-          language_code: 'ko',
-          location_code: 2410, // South Korea
-          include_seed_keyword: true,
-          include_serp_info: false,
-          limit: 50,
+    // Google Suggest API (자동완성)
+    const response = await fetch(
+      `https://suggestqueries.google.com/complete/search?client=firefox&hl=ko&q=${encodeURIComponent(keyword)}`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-      ]),
-    });
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Google Suggest API Error:', response.status);
+      return res.status(response.status).json({
+        error: `Google API Error: ${response.status}`
+      });
+    }
 
     const data = await response.json();
+    // Google Suggest 응답 형식: [검색어, [자동완성 배열]]
+    const suggestions = data[1] || [];
 
-    console.log('DataForSEO Response:', JSON.stringify(data, null, 2));
+    // 자동완성 키워드를 형식에 맞게 변환
+    const keywords = suggestions.map((suggestion) => ({
+      keyword: suggestion,
+      searchVolume: 0, // Google Suggest는 검색량 제공 안함
+      cpc: 0,
+      competition: 0,
+      competitionLevel: 'UNKNOWN',
+    }));
 
-    // Check task-level status first (more specific errors)
-    const tasks = data.tasks || [];
-    if (tasks.length > 0) {
-      const task = tasks[0];
-      if (task.status_code !== 20000) {
-        const errorMsg = task.status_code === 40200
-          ? 'DataForSEO 크레딧이 부족합니다. 계정을 충전해주세요.'
-          : `${task.status_message || 'Unknown error'} (code: ${task.status_code})`;
-        console.error('DataForSEO Task Error:', task.status_message, task.status_code);
-        return res.status(400).json({ error: errorMsg });
-      }
-    }
-
-    // Check HTTP response
-    if (!response.ok) {
-      console.error('DataForSEO HTTP Error:', response.status);
-      return res.status(response.status).json({
-        error: `HTTP Error: ${response.status}`
-      });
-    }
-
-    // Check for API-level errors
-    if (data.status_code !== 20000) {
-      return res.status(400).json({
-        error: `API Error: ${data.status_message || 'Unknown error'} (code: ${data.status_code})`
-      });
-    }
-
-    // Extract keywords from response
-    if (tasks.length === 0) {
-      return res.status(200).json({ keywords: [] });
-    }
-
-    const task = tasks[0];
-    if (!task.result || task.result.length === 0) {
-      return res.status(200).json({ keywords: [] });
-    }
-
-    const result = task.result[0];
-    const items = result?.items || [];
-
-    // Transform and sort by search volume
-    const keywords = items
-      .map(item => ({
-        keyword: item.keyword_data?.keyword || item.keyword || '',
-        searchVolume: item.keyword_data?.keyword_info?.search_volume || 0,
-        cpc: item.keyword_data?.keyword_info?.cpc || 0,
-        competition: item.keyword_data?.keyword_info?.competition || 0,
-        competitionLevel: item.keyword_data?.keyword_info?.competition_level || 'UNKNOWN',
-      }))
-      .filter(kw => kw.keyword && kw.searchVolume > 0)
-      .sort((a, b) => b.searchVolume - a.searchVolume);
+    console.log(`Found ${keywords.length} autocomplete keywords for "${keyword}"`);
 
     return res.status(200).json({ keywords });
 
