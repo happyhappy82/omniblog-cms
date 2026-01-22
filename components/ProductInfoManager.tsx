@@ -1,16 +1,29 @@
-import React, { useState } from 'react';
-import { ProductInfo } from '../types';
+import React, { useState, useEffect } from 'react';
+import { ProductInfo, NicheType } from '../types';
 import { Icon } from './Icon';
 
 interface ProductInfoManagerProps {
-  onAddToContext: (text: string) => void;
+  nicheId: NicheType;
+  currentProducts: ProductInfo[];
+  onSaveProducts: (products: ProductInfo[]) => void;
 }
 
-export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToContext }) => {
+const LIBRARY_KEY = 'omni_product_library';
+
+export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({
+  nicheId,
+  currentProducts,
+  onSaveProducts
+}) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [products, setProducts] = useState<ProductInfo[]>([]);
-  const [currentProduct, setCurrentProduct] = useState<ProductInfo>({
-    id: '',
+  const [library, setLibrary] = useState<ProductInfo[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'latest' | 'name' | 'price'>('latest');
+  const [editingProduct, setEditingProduct] = useState<ProductInfo | null>(null);
+
+  // 제품 등록 폼 상태
+  const [formData, setFormData] = useState<Omit<ProductInfo, 'id' | 'createdAt'>>({
     name: '',
     price: '',
     coupangLink: '',
@@ -18,71 +31,172 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
     features: ''
   });
 
+  // 라이브러리 로드
+  useEffect(() => {
+    const stored = localStorage.getItem(LIBRARY_KEY);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const nicheLibrary = parsed[nicheId] || [];
+        setLibrary(nicheLibrary);
+      } catch (error) {
+        console.error('Failed to load product library:', error);
+      }
+    }
+  }, [nicheId, isOpen]);
+
+  // 현재 Draft의 제품 ID를 선택 상태로 초기화
+  useEffect(() => {
+    if (isOpen) {
+      const ids = new Set(currentProducts.map(p => p.id));
+      setSelectedIds(ids);
+    }
+  }, [isOpen, currentProducts]);
+
+  // 라이브러리 저장
+  const saveLibrary = (updatedLibrary: ProductInfo[]) => {
+    const stored = localStorage.getItem(LIBRARY_KEY);
+    const allLibraries = stored ? JSON.parse(stored) : {};
+    allLibraries[nicheId] = updatedLibrary;
+    localStorage.setItem(LIBRARY_KEY, JSON.stringify(allLibraries));
+    setLibrary(updatedLibrary);
+  };
+
+  // 제품 추가
   const handleAddProduct = () => {
-    if (!currentProduct.name.trim()) {
+    if (!formData.name.trim()) {
       alert('제품명을 입력해주세요.');
       return;
     }
 
     const newProduct: ProductInfo = {
-      ...currentProduct,
-      id: crypto.randomUUID()
+      ...formData,
+      id: crypto.randomUUID(),
+      createdAt: Date.now()
     };
 
-    setProducts([...products, newProduct]);
+    const updatedLibrary = [newProduct, ...library];
+    saveLibrary(updatedLibrary);
 
     // 폼 초기화
-    setCurrentProduct({
-      id: '',
+    setFormData({
       name: '',
       price: '',
       coupangLink: '',
       specs: '',
       features: ''
     });
+
+    alert('제품이 라이브러리에 추가되었습니다!');
   };
 
-  const handleDeleteProduct = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
+  // 제품 수정 시작
+  const handleStartEdit = (product: ProductInfo) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      price: product.price,
+      coupangLink: product.coupangLink,
+      specs: product.specs,
+      features: product.features
+    });
   };
 
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
-    const newProducts = [...products];
-    [newProducts[index - 1], newProducts[index]] = [newProducts[index], newProducts[index - 1]];
-    setProducts(newProducts);
-  };
-
-  const handleMoveDown = (index: number) => {
-    if (index === products.length - 1) return;
-    const newProducts = [...products];
-    [newProducts[index], newProducts[index + 1]] = [newProducts[index + 1], newProducts[index]];
-    setProducts(newProducts);
-  };
-
-  const handleAddToContext = () => {
-    if (products.length === 0) {
-      alert('추가할 제품이 없습니다.');
+  // 제품 수정 저장
+  const handleUpdateProduct = () => {
+    if (!editingProduct || !formData.name.trim()) {
+      alert('제품명을 입력해주세요.');
       return;
     }
 
-    // 구조화된 포맷으로 변환
-    let formattedText = `# 제품 추천 TOP ${products.length}\n\n`;
+    const updatedLibrary = library.map(p =>
+      p.id === editingProduct.id
+        ? { ...p, ...formData }
+        : p
+    );
 
-    products.forEach((product, index) => {
-      formattedText += `## ${index + 1}. ${product.name}\n`;
-      if (product.price) formattedText += `- 가격: ${product.price}\n`;
-      if (product.coupangLink) formattedText += `- 쿠팡 링크: ${product.coupangLink}\n`;
-      if (product.specs) formattedText += `- 주요 스펙: ${product.specs}\n`;
-      if (product.features) formattedText += `- 특징: ${product.features}\n`;
-      formattedText += '\n';
+    saveLibrary(updatedLibrary);
+    setEditingProduct(null);
+    setFormData({
+      name: '',
+      price: '',
+      coupangLink: '',
+      specs: '',
+      features: ''
     });
 
-    onAddToContext(formattedText);
-    setProducts([]);
-    setIsOpen(false);
-    alert('제품 정보가 Context에 추가되었습니다!');
+    alert('제품이 수정되었습니다!');
   };
+
+  // 제품 삭제
+  const handleDeleteProduct = (id: string) => {
+    if (!confirm('이 제품을 라이브러리에서 삭제하시겠습니까?')) return;
+
+    const updatedLibrary = library.filter(p => p.id !== id);
+    saveLibrary(updatedLibrary);
+
+    // 선택 상태에서도 제거
+    const newSelectedIds = new Set(selectedIds);
+    newSelectedIds.delete(id);
+    setSelectedIds(newSelectedIds);
+  };
+
+  // 제품 선택 토글
+  const handleToggleSelect = (id: string) => {
+    const newSelectedIds = new Set(selectedIds);
+    if (newSelectedIds.has(id)) {
+      newSelectedIds.delete(id);
+    } else {
+      newSelectedIds.add(id);
+    }
+    setSelectedIds(newSelectedIds);
+  };
+
+  // Draft에 적용
+  const handleApplyToDraft = () => {
+    const selectedProducts = library.filter(p => selectedIds.has(p.id));
+
+    if (selectedProducts.length === 0) {
+      alert('선택된 제품이 없습니다.');
+      return;
+    }
+
+    onSaveProducts(selectedProducts);
+    setIsOpen(false);
+    alert(`${selectedProducts.length}개 제품이 현재 Draft에 적용되었습니다!`);
+  };
+
+  // 필터링 및 정렬
+  const getFilteredAndSortedLibrary = () => {
+    let filtered = library;
+
+    // 검색 필터
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        p.specs.toLowerCase().includes(query)
+      );
+    }
+
+    // 정렬
+    const sorted = [...filtered];
+    if (sortBy === 'latest') {
+      sorted.sort((a, b) => b.createdAt - a.createdAt);
+    } else if (sortBy === 'name') {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'price') {
+      sorted.sort((a, b) => {
+        const priceA = parseInt(a.price.replace(/[^0-9]/g, '')) || 0;
+        const priceB = parseInt(b.price.replace(/[^0-9]/g, '')) || 0;
+        return priceB - priceA;
+      });
+    }
+
+    return sorted;
+  };
+
+  const filteredLibrary = getFilteredAndSortedLibrary();
 
   return (
     <>
@@ -92,22 +206,27 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
         className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-bold hover:from-blue-600 hover:to-purple-600 transition-all flex items-center justify-center gap-2 shadow-lg"
       >
         <Icon name="Package" size={18} />
-        💻 제품 정보 추가
+        💻 제품 관리 ({currentProducts.length}개 선택됨)
       </button>
       <p className="text-xs text-slate-400 mt-2 text-center">
-        💡 여러 제품을 추가하고 Context에 구조화된 형식으로 삽입합니다
+        💡 제품 라이브러리에서 선택하여 사용합니다
       </p>
 
       {/* 다이얼로그 */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#1C2128] border border-slate-700 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-[#1C2128] border border-slate-700 rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* 헤더 */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#161B22]">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Icon name="Package" size={18} className="text-blue-500" />
-                제품 정보 관리자
-              </h2>
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Icon name="Package" size={18} className="text-blue-500" />
+                  제품 라이브러리 관리
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  등록: {library.length}개 | 선택: {selectedIds.size}개
+                </p>
+              </div>
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-slate-400 hover:text-white transition-colors"
@@ -117,17 +236,38 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="grid grid-cols-2 gap-6">
-                {/* 왼쪽: 입력 폼 */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-white mb-3">제품 정보 입력</h3>
+              <div className="grid grid-cols-5 gap-6">
+                {/* 왼쪽: 제품 등록/수정 폼 */}
+                <div className="col-span-2 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-white">
+                      {editingProduct ? '제품 수정' : '새 제품 등록'}
+                    </h3>
+                    {editingProduct && (
+                      <button
+                        onClick={() => {
+                          setEditingProduct(null);
+                          setFormData({
+                            name: '',
+                            price: '',
+                            coupangLink: '',
+                            specs: '',
+                            features: ''
+                          });
+                        }}
+                        className="text-xs text-slate-400 hover:text-white"
+                      >
+                        취소
+                      </button>
+                    )}
+                  </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-400 mb-2">제품명 *</label>
                     <input
                       type="text"
-                      value={currentProduct.name}
-                      onChange={(e) => setCurrentProduct({ ...currentProduct, name: e.target.value })}
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="예: LG 그램 17인치 (2024년형)"
                       className="w-full bg-[#0D1117] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-blue-500 outline-none"
                     />
@@ -137,8 +277,8 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
                     <label className="block text-xs font-bold text-slate-400 mb-2">가격</label>
                     <input
                       type="text"
-                      value={currentProduct.price}
-                      onChange={(e) => setCurrentProduct({ ...currentProduct, price: e.target.value })}
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                       placeholder="예: 2,190,000원"
                       className="w-full bg-[#0D1117] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-blue-500 outline-none"
                     />
@@ -148,8 +288,8 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
                     <label className="block text-xs font-bold text-slate-400 mb-2">쿠팡 링크</label>
                     <input
                       type="text"
-                      value={currentProduct.coupangLink}
-                      onChange={(e) => setCurrentProduct({ ...currentProduct, coupangLink: e.target.value })}
+                      value={formData.coupangLink}
+                      onChange={(e) => setFormData({ ...formData, coupangLink: e.target.value })}
                       placeholder="https://coupa.ng/xxxxx"
                       className="w-full bg-[#0D1117] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-blue-500 outline-none"
                     />
@@ -158,8 +298,8 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
                   <div>
                     <label className="block text-xs font-bold text-slate-400 mb-2">주요 스펙</label>
                     <textarea
-                      value={currentProduct.specs}
-                      onChange={(e) => setCurrentProduct({ ...currentProduct, specs: e.target.value })}
+                      value={formData.specs}
+                      onChange={(e) => setFormData({ ...formData, specs: e.target.value })}
                       placeholder="예: Intel i7-13세대, 32GB RAM, 1TB SSD, 17인치"
                       className="w-full h-20 bg-[#0D1117] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-blue-500 outline-none resize-none"
                     />
@@ -168,86 +308,117 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
                   <div>
                     <label className="block text-xs font-bold text-slate-400 mb-2">특징/장점</label>
                     <textarea
-                      value={currentProduct.features}
-                      onChange={(e) => setCurrentProduct({ ...currentProduct, features: e.target.value })}
+                      value={formData.features}
+                      onChange={(e) => setFormData({ ...formData, features: e.target.value })}
                       placeholder="예: 초경량 1.35kg, 배터리 20시간"
                       className="w-full h-20 bg-[#0D1117] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-blue-500 outline-none resize-none"
                     />
                   </div>
 
-                  <button
-                    onClick={handleAddProduct}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all flex items-center justify-center gap-2"
-                  >
-                    <Icon name="Plus" size={16} />
-                    리스트에 추가
-                  </button>
+                  {editingProduct ? (
+                    <button
+                      onClick={handleUpdateProduct}
+                      className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-all flex items-center justify-center gap-2"
+                    >
+                      <Icon name="Check" size={16} />
+                      수정 완료
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleAddProduct}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all flex items-center justify-center gap-2"
+                    >
+                      <Icon name="Plus" size={16} />
+                      라이브러리에 추가
+                    </button>
+                  )}
                 </div>
 
-                {/* 오른쪽: 제품 리스트 */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-bold text-white">
-                      제품 리스트 ({products.length})
-                    </h3>
-                    {products.length > 0 && (
-                      <button
-                        onClick={() => setProducts([])}
-                        className="text-xs text-red-400 hover:text-red-300"
-                      >
-                        전체 삭제
-                      </button>
-                    )}
+                {/* 오른쪽: 제품 라이브러리 목록 */}
+                <div className="col-span-3 flex flex-col">
+                  {/* 검색 및 정렬 */}
+                  <div className="flex gap-2 mb-4">
+                    <div className="flex-1 relative">
+                      <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="제품명 또는 스펙 검색..."
+                        className="w-full bg-[#0D1117] border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
+                      />
+                    </div>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="bg-[#0D1117] border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
+                    >
+                      <option value="latest">최신순</option>
+                      <option value="name">이름순</option>
+                      <option value="price">가격순</option>
+                    </select>
                   </div>
 
-                  <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                    {products.length === 0 ? (
-                      <div className="text-center py-8 text-slate-500">
-                        <Icon name="Package" size={32} className="mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">추가된 제품이 없습니다</p>
+                  {/* 제품 목록 */}
+                  <div className="flex-1 space-y-2 overflow-y-auto max-h-[550px]">
+                    {filteredLibrary.length === 0 ? (
+                      <div className="text-center py-12 text-slate-500">
+                        <Icon name="Package" size={48} className="mx-auto mb-3 opacity-50" />
+                        <p className="text-sm">
+                          {searchQuery ? '검색 결과가 없습니다' : '등록된 제품이 없습니다'}
+                        </p>
+                        <p className="text-xs mt-1">왼쪽 폼에서 제품을 추가해보세요</p>
                       </div>
                     ) : (
-                      products.map((product, index) => (
+                      filteredLibrary.map((product) => (
                         <div
                           key={product.id}
-                          className="bg-[#0D1117] border border-slate-700 rounded-lg p-3"
+                          className={`bg-[#0D1117] border rounded-lg p-3 transition-all ${
+                            selectedIds.has(product.id)
+                              ? 'border-blue-500 bg-blue-500/5'
+                              : 'border-slate-700 hover:border-slate-600'
+                          }`}
                         >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-bold text-blue-400">#{index + 1}</span>
-                                <h4 className="text-sm font-bold text-white">{product.name}</h4>
-                              </div>
+                          <div className="flex items-start gap-3">
+                            {/* 체크박스 */}
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(product.id)}
+                              onChange={() => handleToggleSelect(product.id)}
+                              className="mt-1 w-4 h-4 rounded border-slate-600 text-blue-600 focus:ring-blue-500"
+                            />
+
+                            {/* 제품 정보 */}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-bold text-white mb-1 truncate">
+                                {product.name}
+                              </h4>
                               {product.price && (
-                                <p className="text-xs text-slate-400">💰 {product.price}</p>
+                                <p className="text-xs text-green-400 mb-1">💰 {product.price}</p>
+                              )}
+                              {product.specs && (
+                                <p className="text-xs text-slate-400 line-clamp-1">🔧 {product.specs}</p>
                               )}
                             </div>
+
+                            {/* 액션 버튼 */}
                             <div className="flex items-center gap-1">
                               <button
-                                onClick={() => handleMoveUp(index)}
-                                disabled={index === 0}
-                                className="p-1 text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                onClick={() => handleStartEdit(product)}
+                                className="p-1.5 text-slate-400 hover:text-blue-400 transition-colors"
+                                title="수정"
                               >
-                                <Icon name="ChevronUp" size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleMoveDown(index)}
-                                disabled={index === products.length - 1}
-                                className="p-1 text-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                              >
-                                <Icon name="ChevronDown" size={16} />
+                                <Icon name="Edit" size={14} />
                               </button>
                               <button
                                 onClick={() => handleDeleteProduct(product.id)}
-                                className="p-1 text-red-400 hover:text-red-300"
+                                className="p-1.5 text-slate-400 hover:text-red-400 transition-colors"
+                                title="삭제"
                               >
-                                <Icon name="Trash2" size={16} />
+                                <Icon name="Trash2" size={14} />
                               </button>
                             </div>
                           </div>
-                          {product.specs && (
-                            <p className="text-xs text-slate-500 line-clamp-1">🔧 {product.specs}</p>
-                          )}
                         </div>
                       ))
                     )}
@@ -259,7 +430,7 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
             {/* 푸터 */}
             <div className="px-6 py-4 bg-[#161B22] border-t border-slate-800 flex justify-between items-center">
               <p className="text-xs text-slate-500">
-                {products.length}개의 제품이 추가되었습니다
+                {selectedIds.size}개 제품 선택됨
               </p>
               <div className="flex gap-2">
                 <button
@@ -269,11 +440,11 @@ export const ProductInfoManager: React.FC<ProductInfoManagerProps> = ({ onAddToC
                   취소
                 </button>
                 <button
-                  onClick={handleAddToContext}
-                  disabled={products.length === 0}
+                  onClick={handleApplyToDraft}
+                  disabled={selectedIds.size === 0}
                   className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-lg transition-all"
                 >
-                  Context에 추가
+                  Draft에 적용
                 </button>
               </div>
             </div>

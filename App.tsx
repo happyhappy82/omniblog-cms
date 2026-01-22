@@ -513,6 +513,56 @@ const App = () => {
     }
   };
 
+  // 제품 정보를 Context 형식으로 변환 (링크와 가격 제외)
+  const formatProductsForContext = (products: typeof currentDraft.products) => {
+    if (!products || products.length === 0) return '';
+
+    let text = '\n\n# 제품 정보\n\n';
+    products.forEach((product, index) => {
+      text += `## ${index + 1}. ${product.name}\n`;
+      if (product.specs) text += `- 주요 스펙: ${product.specs}\n`;
+      if (product.features) text += `- 특징: ${product.features}\n`;
+      text += '\n';
+    });
+
+    return text;
+  };
+
+  // 생성된 콘텐츠에 쿠팡 버튼 삽입
+  const insertCoupangButtons = (content: string, products: typeof currentDraft.products) => {
+    if (!products || products.length === 0) return content;
+
+    let result = content;
+
+    products.forEach((product, index) => {
+      // 제품명 패턴 찾기 (예: "## 1. LG 그램 17인치" 또는 "### 1. LG 그램 17인치")
+      const productNumber = index + 1;
+      const patterns = [
+        new RegExp(`(##\\s*${productNumber}\\.\\s*${product.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?\\n(?=[\\s\\S]*?(?:##|###|$)))`, 'i'),
+        new RegExp(`(###\\s*${productNumber}\\.\\s*${product.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?\\n(?=[\\s\\S]*?(?:##|###|$)))`, 'i')
+      ];
+
+      for (const pattern of patterns) {
+        const match = result.match(pattern);
+        if (match) {
+          const sectionContent = match[1];
+          // 섹션 끝부분 찾기 (다음 제목 또는 문서 끝)
+          const nextHeaderIndex = result.indexOf(sectionContent) + sectionContent.length;
+          const beforeNextSection = result.substring(0, nextHeaderIndex);
+          const afterNextSection = result.substring(nextHeaderIndex);
+
+          // 쿠팡 버튼 삽입
+          const button = `\n\n> 💰 **현재 가격**: ${product.price}\n> \n> [🛒 쿠팡 최저가 확인하기](${product.coupangLink})\n\n`;
+
+          result = beforeNextSection.trimEnd() + button + afterNextSection;
+          break;
+        }
+      }
+    });
+
+    return result;
+  };
+
   const handleGenerate = async () => {
     if (!currentDraft || !settings.geminiApiKey) {
       if (!settings.geminiApiKey) setIsSettingsOpen(true);
@@ -531,6 +581,9 @@ const App = () => {
         : d
     ));
 
+    // Context에 제품 정보 추가 (링크 제외)
+    const enhancedContext = currentDraft.context + (currentDraft.products ? formatProductsForContext(currentDraft.products) : '');
+
     try {
       if (activeNicheId === NicheType.AI) {
         // AI 플랫폼: 네이버와 노션 각각 생성
@@ -539,7 +592,7 @@ const App = () => {
           settings.geminiApiKey,
           activeNiche,
           currentDraft.title,
-          currentDraft.context,
+          enhancedContext,
           currentDraft.naverPrompt
         );
 
@@ -548,16 +601,21 @@ const App = () => {
         }
 
         // 노션 콘텐츠 생성
-        const notionContent = await generateBlogDraft(
+        let notionContent = await generateBlogDraft(
           settings.geminiApiKey,
           activeNiche,
           currentDraft.title,
-          currentDraft.context,
+          enhancedContext,
           currentDraft.userPrompt
         );
 
         if (controller.signal.aborted) {
           throw new Error('생성이 취소되었습니다.');
+        }
+
+        // 제품 정보가 있으면 쿠팡 버튼 삽입
+        if (currentDraft.products && currentDraft.products.length > 0) {
+          notionContent = insertCoupangButtons(notionContent, currentDraft.products);
         }
 
         setDrafts(prev => prev.map(d =>
@@ -573,16 +631,21 @@ const App = () => {
         ));
       } else {
         // 다른 플랫폼: 노션만 생성
-        const generatedContent = await generateBlogDraft(
+        let generatedContent = await generateBlogDraft(
           settings.geminiApiKey,
           activeNiche,
           currentDraft.title,
-          currentDraft.context,
+          enhancedContext,
           currentDraft.userPrompt
         );
 
         if (controller.signal.aborted) {
           throw new Error('생성이 취소되었습니다.');
+        }
+
+        // Tech 플랫폼이고 제품 정보가 있으면 쿠팡 버튼 삽입
+        if (activeNicheId === NicheType.TECH && currentDraft.products && currentDraft.products.length > 0) {
+          generatedContent = insertCoupangButtons(generatedContent, currentDraft.products);
         }
 
         setDrafts(prev => prev.map(d =>
@@ -659,6 +722,9 @@ const App = () => {
           : d
       ));
 
+      // Context에 제품 정보 추가 (링크 제외)
+      const draftEnhancedContext = draft.context + (draft.products ? formatProductsForContext(draft.products) : '');
+
       try {
         if (activeNicheId === NicheType.AI) {
           // AI 플랫폼: 네이버와 노션 각각 생성
@@ -666,17 +732,22 @@ const App = () => {
             settings.geminiApiKey,
             activeNiche,
             draft.title,
-            draft.context,
+            draftEnhancedContext,
             draft.naverPrompt
           );
 
-          const notionContent = await generateBlogDraft(
+          let notionContent = await generateBlogDraft(
             settings.geminiApiKey,
             activeNiche,
             draft.title,
-            draft.context,
+            draftEnhancedContext,
             draft.userPrompt
           );
+
+          // 제품 정보가 있으면 쿠팡 버튼 삽입
+          if (draft.products && draft.products.length > 0) {
+            notionContent = insertCoupangButtons(notionContent, draft.products);
+          }
 
           setDrafts(prev => prev.map(d =>
             d.id === draft.id
@@ -691,13 +762,18 @@ const App = () => {
           ));
         } else {
           // 다른 플랫폼: 노션만 생성
-          const generatedContent = await generateBlogDraft(
+          let generatedContent = await generateBlogDraft(
             settings.geminiApiKey,
             activeNiche,
             draft.title,
-            draft.context,
+            draftEnhancedContext,
             draft.userPrompt
           );
+
+          // Tech 플랫폼이고 제품 정보가 있으면 쿠팡 버튼 삽입
+          if (activeNicheId === NicheType.TECH && draft.products && draft.products.length > 0) {
+            generatedContent = insertCoupangButtons(generatedContent, draft.products);
+          }
 
           setDrafts(prev => prev.map(d =>
             d.id === draft.id
@@ -1066,9 +1142,19 @@ const App = () => {
                       )}
 
                       {/* TECH 니치 전용: 제품 정보 추가 */}
-                      {activeNicheId === NicheType.TECH && (
+                      {activeNicheId === NicheType.TECH && currentDraft && (
                         <div className="mb-4">
-                          <ProductInfoManager onAddToContext={handleRegionalDataAdd} />
+                          <ProductInfoManager
+                            nicheId={activeNicheId}
+                            currentProducts={currentDraft.products || []}
+                            onSaveProducts={(products) => {
+                              setDrafts(prev => prev.map(d =>
+                                d.id === currentDraftId
+                                  ? { ...d, products, lastModified: Date.now() }
+                                  : d
+                              ));
+                            }}
+                          />
                         </div>
                       )}
 

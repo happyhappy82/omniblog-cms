@@ -35,6 +35,7 @@ export interface Draft {
   scheduledDate?: string; // 포스팅 예정 날짜 (ISO 8601 format)
   createdAt: number;
   lastModified: number;
+  products?: ProductInfo[]; // Tech 플랫폼용: 선택된 제품 리스트
 }
 
 export interface NicheSettings {
@@ -139,4 +140,10 @@ export interface ProductInfo {
   coupangLink: string;
   specs: string;
   features: string;
+  createdAt: number;
+}
+
+// 제품 라이브러리 저장 구조
+export interface ProductLibrary {
+  [nicheId: string]: ProductInfo[]; // 니치별 제품 라이브러리
 }
