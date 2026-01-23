@@ -313,7 +313,12 @@ const App = () => {
       naverContent: '',
       status: 'idle',
       createdAt: now,
-      lastModified: now
+      lastModified: now,
+      // AI 플랫폼일 때만 생성 옵션 추가
+      ...(nicheId === NicheType.AI && {
+        generateNotion: true,
+        generateNaver: true
+      })
     };
     setDrafts(prev => [...prev, newDraft]);
     setCurrentDraftId(newDraft.id);
@@ -333,7 +338,12 @@ const App = () => {
       naverContent: '',
       status: 'idle',
       createdAt: now + index, // 약간의 차이를 둬서 순서 보장
-      lastModified: now + index
+      lastModified: now + index,
+      // AI 플랫폼일 때만 생성 옵션 추가
+      ...(activeNicheId === NicheType.AI && {
+        generateNotion: true,
+        generateNaver: true
+      })
     }));
 
     setDrafts(prev => [...newDrafts, ...prev]);
@@ -586,36 +596,59 @@ const App = () => {
 
     try {
       if (activeNicheId === NicheType.AI) {
-        // AI 플랫폼: 네이버와 노션 각각 생성
-        // 네이버 콘텐츠 생성
-        const naverContent = await generateBlogDraft(
-          settings.geminiApiKey,
-          activeNiche,
-          currentDraft.title,
-          enhancedContext,
-          currentDraft.naverPrompt
-        );
+        // AI 플랫폼: 선택적 생성
+        const shouldGenerateNaver = currentDraft.generateNaver ?? true;
+        const shouldGenerateNotion = currentDraft.generateNotion ?? true;
 
-        if (controller.signal.aborted) {
-          throw new Error('생성이 취소되었습니다.');
+        // 둘 다 체크 해제된 경우
+        if (!shouldGenerateNaver && !shouldGenerateNotion) {
+          alert('최소 하나 이상의 콘텐츠를 선택해주세요.');
+          setIsGenerating(false);
+          setAbortController(null);
+          setDrafts(prev => prev.map(d =>
+            d.id === currentDraftId
+              ? { ...d, status: 'idle' as const, lastModified: Date.now() }
+              : d
+          ));
+          return;
         }
 
-        // 노션 콘텐츠 생성
-        let notionContent = await generateBlogDraft(
-          settings.geminiApiKey,
-          activeNiche,
-          currentDraft.title,
-          enhancedContext,
-          currentDraft.userPrompt
-        );
+        let naverContent = '';
+        let notionContent = '';
 
-        if (controller.signal.aborted) {
-          throw new Error('생성이 취소되었습니다.');
+        // 네이버 콘텐츠 생성 (선택된 경우에만)
+        if (shouldGenerateNaver) {
+          naverContent = await generateBlogDraft(
+            settings.geminiApiKey,
+            activeNiche,
+            currentDraft.title,
+            enhancedContext,
+            currentDraft.naverPrompt
+          );
+
+          if (controller.signal.aborted) {
+            throw new Error('생성이 취소되었습니다.');
+          }
         }
 
-        // 제품 정보가 있으면 쿠팡 버튼 삽입
-        if (currentDraft.products && currentDraft.products.length > 0) {
-          notionContent = insertCoupangButtons(notionContent, currentDraft.products);
+        // 노션 콘텐츠 생성 (선택된 경우에만)
+        if (shouldGenerateNotion) {
+          notionContent = await generateBlogDraft(
+            settings.geminiApiKey,
+            activeNiche,
+            currentDraft.title,
+            enhancedContext,
+            currentDraft.userPrompt
+          );
+
+          if (controller.signal.aborted) {
+            throw new Error('생성이 취소되었습니다.');
+          }
+
+          // 제품 정보가 있으면 쿠팡 버튼 삽입
+          if (currentDraft.products && currentDraft.products.length > 0) {
+            notionContent = insertCoupangButtons(notionContent, currentDraft.products);
+          }
         }
 
         setDrafts(prev => prev.map(d =>
@@ -727,26 +760,38 @@ const App = () => {
 
       try {
         if (activeNicheId === NicheType.AI) {
-          // AI 플랫폼: 네이버와 노션 각각 생성
-          const naverContent = await generateBlogDraft(
-            settings.geminiApiKey,
-            activeNiche,
-            draft.title,
-            draftEnhancedContext,
-            draft.naverPrompt
-          );
+          // AI 플랫폼: 선택적 생성
+          const shouldGenerateNaver = draft.generateNaver ?? true;
+          const shouldGenerateNotion = draft.generateNotion ?? true;
 
-          let notionContent = await generateBlogDraft(
-            settings.geminiApiKey,
-            activeNiche,
-            draft.title,
-            draftEnhancedContext,
-            draft.userPrompt
-          );
+          let naverContent = '';
+          let notionContent = '';
 
-          // 제품 정보가 있으면 쿠팡 버튼 삽입
-          if (draft.products && draft.products.length > 0) {
-            notionContent = insertCoupangButtons(notionContent, draft.products);
+          // 네이버 콘텐츠 생성 (선택된 경우에만)
+          if (shouldGenerateNaver) {
+            naverContent = await generateBlogDraft(
+              settings.geminiApiKey,
+              activeNiche,
+              draft.title,
+              draftEnhancedContext,
+              draft.naverPrompt
+            );
+          }
+
+          // 노션 콘텐츠 생성 (선택된 경우에만)
+          if (shouldGenerateNotion) {
+            notionContent = await generateBlogDraft(
+              settings.geminiApiKey,
+              activeNiche,
+              draft.title,
+              draftEnhancedContext,
+              draft.userPrompt
+            );
+
+            // 제품 정보가 있으면 쿠팡 버튼 삽입
+            if (draft.products && draft.products.length > 0) {
+              notionContent = insertCoupangButtons(notionContent, draft.products);
+            }
           }
 
           setDrafts(prev => prev.map(d =>
@@ -1221,6 +1266,55 @@ const App = () => {
                       </div>
                    </div>
                 </div>
+
+                {/* AI 플랫폼 전용: 생성 옵션 선택 */}
+                {activeNicheId === NicheType.AI && currentDraft && (
+                  <div className="px-6 py-4 bg-[#161B22] border border-slate-700 rounded-lg">
+                    <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                      <Icon name="Settings" size={14} className="text-[#0EA5E9]" />
+                      생성 옵션 선택
+                    </h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={currentDraft.generateNaver ?? true}
+                          onChange={(e) => {
+                            setDrafts(prev => prev.map(d =>
+                              d.id === currentDraftId
+                                ? { ...d, generateNaver: e.target.checked, lastModified: Date.now() }
+                                : d
+                            ));
+                          }}
+                          className="w-4 h-4 rounded border-slate-600 text-green-600 focus:ring-green-500"
+                        />
+                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                          <span className="font-bold text-green-400">네이버</span> 블로그 콘텐츠 생성
+                        </span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={currentDraft.generateNotion ?? true}
+                          onChange={(e) => {
+                            setDrafts(prev => prev.map(d =>
+                              d.id === currentDraftId
+                                ? { ...d, generateNotion: e.target.checked, lastModified: Date.now() }
+                                : d
+                            ));
+                          }}
+                          className="w-4 h-4 rounded border-slate-600 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                          <span className="font-bold text-emerald-400">Notion</span> 페이지 콘텐츠 생성
+                        </span>
+                      </label>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-3 italic">
+                      💡 필요한 콘텐츠만 선택하여 API 사용량을 절약할 수 있습니다
+                    </p>
+                  </div>
+                )}
 
                 {/* Generate Button */}
                 <div className="pt-4 pb-8">

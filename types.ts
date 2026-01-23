@@ -36,6 +36,8 @@ export interface Draft {
   createdAt: number;
   lastModified: number;
   products?: ProductInfo[]; // Tech 플랫폼용: 선택된 제품 리스트
+  generateNotion?: boolean; // AI 플랫폼용: 노션 생성 여부 (기본값: true)
+  generateNaver?: boolean; // AI 플랫폼용: 네이버 생성 여부 (기본값: true)
 }
 
 export interface NicheSettings {
