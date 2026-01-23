@@ -8,12 +8,13 @@ interface QueuePanelProps {
   drafts: Draft[];
   currentDraftId: string | null;
   onDraftSelect: (draftId: string) => void;
-  onBulkGenerate: () => void;
+  onBulkGenerate: (options?: { generateNaver?: boolean; generateNotion?: boolean }) => void;
   onBulkNotionUpload: () => void;
   onAddTopics: (topics: string[]) => void;
   onDeleteDraft: (draftId: string) => void;
   onBatchScheduleDates: (startDate: Date, intervalDays: number) => void;
   onOpenKeywordAnalysis: () => void;
+  onApplyBulkOptions?: (options: { generateNaver: boolean; generateNotion: boolean }) => void;
 }
 
 const STATUS_CONFIG = {
@@ -35,6 +36,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   onDeleteDraft,
   onBatchScheduleDates,
   onOpenKeywordAnalysis,
+  onApplyBulkOptions,
 }) => {
   const [showAddTopics, setShowAddTopics] = useState(false);
   const [topicsText, setTopicsText] = useState('');
@@ -45,6 +47,8 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   const [scheduleStartDate, setScheduleStartDate] = useState('');
   const [scheduleStartTime, setScheduleStartTime] = useState('09:00');
   const [scheduleInterval, setScheduleInterval] = useState('1');
+  const [bulkGenerateNaver, setBulkGenerateNaver] = useState(true);
+  const [bulkGenerateNotion, setBulkGenerateNotion] = useState(true);
 
   const niche = NICHES.find(n => n.id === nicheId);
 
@@ -289,8 +293,55 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
           </>
         ) : (
           <>
+            {/* AI 플랫폼 전용: 일괄 생성 옵션 */}
+            {nicheId === NicheType.AI && statusCounts.idle > 0 && (
+              <div className="mb-3 px-3 py-2 bg-[#161B22] border border-slate-700 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-slate-300">일괄 생성 옵션</p>
+                  {onApplyBulkOptions && (
+                    <button
+                      onClick={() => {
+                        if (!bulkGenerateNaver && !bulkGenerateNotion) {
+                          alert('최소 하나 이상의 옵션을 선택해주세요.');
+                          return;
+                        }
+                        onApplyBulkOptions({ generateNaver: bulkGenerateNaver, generateNotion: bulkGenerateNotion });
+                      }}
+                      className="text-[10px] px-2 py-1 bg-[#0EA5E9] hover:bg-[#0284C7] text-white font-medium rounded transition-colors"
+                    >
+                      전체 적용 ({statusCounts.idle}개)
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={bulkGenerateNaver}
+                      onChange={(e) => setBulkGenerateNaver(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-slate-600 text-green-600 focus:ring-green-500"
+                    />
+                    <span className="text-xs text-slate-400 group-hover:text-white transition-colors">
+                      네이버 생성
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={bulkGenerateNotion}
+                      onChange={(e) => setBulkGenerateNotion(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded border-slate-600 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs text-slate-400 group-hover:text-white transition-colors">
+                      Notion 생성
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
+
             <button
-              onClick={onBulkGenerate}
+              onClick={() => onBulkGenerate(nicheId === NicheType.AI ? { generateNaver: bulkGenerateNaver, generateNotion: bulkGenerateNotion } : undefined)}
               disabled={statusCounts.idle === 0}
               className={`w-full py-2.5 rounded-lg font-bold text-white text-sm flex items-center justify-center gap-2 transition-all ${
                 statusCounts.idle === 0

@@ -733,7 +733,25 @@ const App = () => {
     }
   };
 
-  const handleBulkGenerate = async () => {
+  // 전체 초안에 생성 옵션 일괄 적용
+  const handleApplyBulkOptions = (options: { generateNaver: boolean; generateNotion: boolean }) => {
+    const idleDrafts = drafts.filter(d => d.nicheId === activeNicheId && d.status === 'idle');
+
+    if (idleDrafts.length === 0) {
+      alert('적용할 대기 항목이 없습니다.');
+      return;
+    }
+
+    setDrafts(prev => prev.map(d =>
+      d.nicheId === activeNicheId && d.status === 'idle'
+        ? { ...d, generateNaver: options.generateNaver, generateNotion: options.generateNotion, lastModified: Date.now() }
+        : d
+    ));
+
+    alert(`${idleDrafts.length}개 항목에 옵션이 적용되었습니다.\n- 네이버: ${options.generateNaver ? '생성' : '미생성'}\n- Notion: ${options.generateNotion ? '생성' : '미생성'}`);
+  };
+
+  const handleBulkGenerate = async (options?: { generateNaver?: boolean; generateNotion?: boolean }) => {
     if (!settings.geminiApiKey) {
       setIsSettingsOpen(true);
       return;
@@ -744,6 +762,24 @@ const App = () => {
     if (idleDrafts.length === 0) {
       alert('생성할 대기 항목이 없습니다.');
       return;
+    }
+
+    // AI 플랫폼이고 옵션이 전달된 경우, 모든 idle drafts에 옵션 적용
+    if (activeNicheId === NicheType.AI && options) {
+      const { generateNaver = true, generateNotion = true } = options;
+
+      // 둘 다 체크 해제된 경우
+      if (!generateNaver && !generateNotion) {
+        alert('최소 하나 이상의 콘텐츠를 선택해주세요.');
+        return;
+      }
+
+      // 모든 idle drafts에 생성 옵션 적용
+      setDrafts(prev => prev.map(d =>
+        d.nicheId === activeNicheId && d.status === 'idle'
+          ? { ...d, generateNaver, generateNotion, lastModified: Date.now() }
+          : d
+      ));
     }
 
     // 순차적으로 생성
@@ -1086,6 +1122,7 @@ const App = () => {
         onDeleteDraft={handleDeleteDraft}
         onBatchScheduleDates={handleBatchScheduleDates}
         onOpenKeywordAnalysis={() => setIsKeywordAnalysisOpen(true)}
+        onApplyBulkOptions={handleApplyBulkOptions}
       />
 
       {/* 3. Main Workspace */}
