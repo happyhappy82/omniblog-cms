@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NICHES, MOCK_INITIAL_CONTENT } from './constants';
-import { NicheType, Draft, AppSettings } from './types';
+import { NicheType, Draft, AppSettings, ProductInfo, NotionGamingLaptop } from './types';
 import { Icon } from './components/Icon';
 import { SettingsDialog } from './components/SettingsDialog';
 import { NotionEditor } from './components/NotionEditor';
@@ -9,6 +9,8 @@ import { QueuePanel } from './components/QueuePanel';
 import { RestaurantSearchDialog } from './components/RestaurantSearchDialog';
 import { RegionalDataManager } from './components/RegionalDataManager';
 import { KeywordAnalysisDialog } from './components/KeywordAnalysisDialog';
+import { NotionProductImporter } from './components/NotionProductImporter';
+import { BulkProductAssigner } from './components/BulkProductAssigner';
 import { generateBlogDraft } from './services/geminiService';
 import { createNotionPage } from './services/notionService';
 import { RegionalData } from './types';
@@ -104,6 +106,8 @@ const App = () => {
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [isRestaurantSearchOpen, setIsRestaurantSearchOpen] = useState(false);
   const [isKeywordAnalysisOpen, setIsKeywordAnalysisOpen] = useState(false);
+  const [isNotionImporterOpen, setIsNotionImporterOpen] = useState(false);
+  const [isBulkAssignerOpen, setIsBulkAssignerOpen] = useState(false);
 
   // --- Derived State ---
   const activeNiche = NICHES.find(n => n.id === activeNicheId)!;
@@ -488,6 +492,56 @@ const App = () => {
     }
 
     alert(`${newDrafts.length}개의 지역별 초안이 생성되었습니다.`);
+  };
+
+  // 노션 제품 가져오기 완료 핸들러 (선택된 제품들을 현재 Draft의 context에 저장)
+  const handleNotionImportComplete = (products: NotionGamingLaptop[]) => {
+    if (!currentDraft) {
+      alert('먼저 Draft를 선택하세요.');
+      return;
+    }
+
+    // 제품 정보를 Context 형식으로 포맷팅
+    let context = `# 게이밍 노트북 추천 TOP${products.length}\n\n`;
+    context += `---\n\n`;
+
+    products.forEach((product, index) => {
+      context += `## ${index + 1}위: ${product.name}\n\n`;
+      context += `**기본 정보**\n`;
+      if (product.price) context += `- 가격: ${product.price}\n`;
+      if (product.coupangLink) context += `- 쿠팡 링크: ${product.coupangLink}\n`;
+      if (product.rocketDelivery) context += `- 로켓배송: 지원\n`;
+      context += '\n';
+
+      // 전체 페이지 내용 (fullContent)
+      if (product.fullContent && product.fullContent.trim()) {
+        context += `**상세 정보**\n\n`;
+        context += product.fullContent;
+        context += '\n\n';
+      }
+
+      context += `---\n\n`;
+    });
+
+    // 제품 정보를 ProductInfo[] 형식으로 변환 (Draft.products용)
+    const productInfos: ProductInfo[] = products.map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      coupangLink: p.coupangLink,
+      specs: '',
+      features: '',
+      createdAt: Date.now(),
+    }));
+
+    // 현재 Draft 업데이트
+    setDrafts(prev => prev.map(d =>
+      d.id === currentDraft.id
+        ? { ...d, context, products: productInfos, lastModified: Date.now() }
+        : d
+    ));
+
+    alert(`${products.length}개 제품 정보가 문맥에 저장되었습니다.`);
   };
 
   const updateCurrentDraft = (field: keyof Draft, value: string) => {
@@ -1123,6 +1177,7 @@ const App = () => {
         onBatchScheduleDates={handleBatchScheduleDates}
         onOpenKeywordAnalysis={() => setIsKeywordAnalysisOpen(true)}
         onApplyBulkOptions={handleApplyBulkOptions}
+        onOpenBulkProductAssigner={() => setIsBulkAssignerOpen(true)}
       />
 
       {/* 3. Main Workspace */}
@@ -1225,7 +1280,21 @@ const App = () => {
 
                       {/* TECH 니치 전용: 제품 정보 추가 */}
                       {activeNicheId === NicheType.TECH && currentDraft && (
-                        <div className="mb-4">
+                        <div className="mb-4 space-y-3">
+                          {/* 노션에서 제품 가져오기 버튼 */}
+                          <button
+                            onClick={() => setIsNotionImporterOpen(true)}
+                            className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg font-bold hover:from-purple-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg"
+                          >
+                            <Icon name="Download" size={18} />
+                            노션에서 제품 대량 가져오기
+                          </button>
+                          <p className="text-xs text-slate-400 text-center">
+                            노션 DB에서 70개 제품을 가져와 5개씩 그룹핑하여 블로그 초안 생성
+                          </p>
+
+                          <div className="h-px bg-slate-700 w-full"></div>
+
                           <ProductInfoManager
                             nicheId={activeNicheId}
                             currentProducts={currentDraft.products || []}
@@ -1434,6 +1503,26 @@ const App = () => {
         isOpen={isKeywordAnalysisOpen}
         onClose={() => setIsKeywordAnalysisOpen(false)}
         onAddKeywords={handleAddTopics}
+      />
+
+      {/* Notion Product Importer Dialog */}
+      <NotionProductImporter
+        isOpen={isNotionImporterOpen}
+        onClose={() => setIsNotionImporterOpen(false)}
+        onImportComplete={handleNotionImportComplete}
+      />
+
+      {/* Bulk Product Assigner Dialog */}
+      <BulkProductAssigner
+        isOpen={isBulkAssignerOpen}
+        onClose={() => setIsBulkAssignerOpen(false)}
+        drafts={drafts.filter(d => d.nicheId === NicheType.TECH)}
+        onAssignComplete={(updatedDrafts) => {
+          setDrafts(prev => prev.map(d => {
+            const updated = updatedDrafts.find(u => u.id === d.id);
+            return updated || d;
+          }));
+        }}
       />
     </div>
   );

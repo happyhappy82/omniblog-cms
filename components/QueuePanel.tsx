@@ -15,6 +15,7 @@ interface QueuePanelProps {
   onBatchScheduleDates: (startDate: Date, intervalDays: number) => void;
   onOpenKeywordAnalysis: () => void;
   onApplyBulkOptions?: (options: { generateNaver: boolean; generateNotion: boolean }) => void;
+  onOpenBulkProductAssigner?: () => void;
 }
 
 const STATUS_CONFIG = {
@@ -37,6 +38,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
   onBatchScheduleDates,
   onOpenKeywordAnalysis,
   onApplyBulkOptions,
+  onOpenBulkProductAssigner,
 }) => {
   const [showAddTopics, setShowAddTopics] = useState(false);
   const [topicsText, setTopicsText] = useState('');
@@ -338,6 +340,22 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
                   </label>
                 </div>
               </div>
+            )}
+
+            {/* TECH 플랫폼 전용: 일괄 제품 할당 버튼 */}
+            {nicheId === NicheType.TECH && onOpenBulkProductAssigner && (
+              <button
+                onClick={onOpenBulkProductAssigner}
+                disabled={statusCounts.idle === 0}
+                className={`w-full py-2.5 rounded-lg font-bold text-white text-sm flex items-center justify-center gap-2 transition-all ${
+                  statusCounts.idle === 0
+                    ? 'bg-slate-800 cursor-not-allowed opacity-50'
+                    : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-lg shadow-purple-900/20'
+                }`}
+              >
+                <Icon name="Shuffle" size={16} />
+                일괄 제품 할당 (대기 {statusCounts.idle}개)
+              </button>
             )}
 
             <button

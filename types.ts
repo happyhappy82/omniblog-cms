@@ -149,3 +149,29 @@ export interface ProductInfo {
 export interface ProductLibrary {
   [nicheId: string]: ProductInfo[]; // 니치별 제품 라이브러리
 }
+
+// 노션에서 가져온 확장된 제품 정보 (게이밍 노트북용)
+export interface NotionGamingLaptop {
+  id: string;
+  name: string;
+  price: string;
+  coupangLink: string;
+  order: number;
+  rocketDelivery?: boolean;
+  // 전체 페이지 내용 (마크다운 형식)
+  fullContent?: string;
+  // 스펙 (fullContent에서 추출 가능)
+  processor?: string;
+  graphics?: string;
+  memory?: string;
+  storage?: string;
+  display?: string;
+}
+
+// 5개 제품 그룹
+export interface ProductGroup {
+  id: string;
+  name: string;  // "RTX 4060 게이밍 노트북 TOP5"
+  groupType: 'price' | 'gpu' | 'brand';
+  products: NotionGamingLaptop[];
+}

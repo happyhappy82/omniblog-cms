@@ -694,9 +694,9 @@ export async function createNotionPage(
     console.log('📅 Creating Notion page with scheduledDate:', scheduledDate);
 
     // 프록시 서버를 통해 노션 API 호출
-    // 개발 환경: localhost:3007, 프로덕션: Vercel serverless function
+    // 개발 환경: localhost:4000, 프로덕션: Vercel serverless function
     const apiUrl = import.meta.env.DEV
-      ? 'http://localhost:3007/api/notion/pages'
+      ? 'http://localhost:4000/api/notion/pages'
       : '/api/notion-pages';
 
     const requestData = {
