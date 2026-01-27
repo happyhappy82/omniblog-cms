@@ -1299,9 +1299,32 @@ const App = () => {
                             nicheId={activeNicheId}
                             currentProducts={currentDraft.products || []}
                             onSaveProducts={(products) => {
+                              // 제품 정보를 Context 형식으로 변환
+                              let context = `# ${currentDraft.title}\n\n`;
+                              context += `총 ${products.length}개 제품 비교\n\n`;
+                              context += `---\n\n`;
+
+                              products.forEach((product, index) => {
+                                context += `## ${index + 1}위: ${product.name}\n\n`;
+                                context += `**기본 정보**\n`;
+                                if (product.price) context += `- 가격: ${product.price}\n`;
+                                if (product.coupangLink) context += `- 쿠팡 링크: ${product.coupangLink}\n`;
+                                context += '\n';
+
+                                // specs와 features가 있으면 상세 정보로 추가
+                                if (product.specs && product.specs.trim()) {
+                                  context += `**주요 스펙**\n${product.specs}\n\n`;
+                                }
+                                if (product.features && product.features.trim()) {
+                                  context += `**특징/장점**\n${product.features}\n\n`;
+                                }
+
+                                context += `---\n\n`;
+                              });
+
                               setDrafts(prev => prev.map(d =>
                                 d.id === currentDraftId
-                                  ? { ...d, products, lastModified: Date.now() }
+                                  ? { ...d, products, context, lastModified: Date.now() }
                                   : d
                               ));
                             }}
