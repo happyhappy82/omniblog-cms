@@ -358,10 +358,63 @@ app.post('/api/notion/pages', async (req, res) => {
   }
 });
 
+/**
+ * 노션 페이지에 블록 추가 (append)
+ * POST /api/notion/blocks/append
+ * Body: { apiKey, pageId, blocks }
+ */
+app.post('/api/notion/blocks/append', async (req, res) => {
+  try {
+    const { apiKey, pageId, blocks } = req.body;
+
+    if (!apiKey || !pageId || !blocks) {
+      return res.status(400).json({
+        success: false,
+        error: 'apiKey, pageId, blocks가 필요합니다'
+      });
+    }
+
+    // 노션 API로 블록 추가
+    const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Notion-Version': '2022-06-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        children: blocks
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.object === 'error') {
+      console.error('Notion API Error (append):', data);
+      return res.status(400).json({
+        success: false,
+        error: data.message || 'Notion API 오류'
+      });
+    }
+
+    res.json({
+      success: true,
+      results: data.results
+    });
+  } catch (error) {
+    console.error('Block Append Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '블록 추가 중 오류가 발생했습니다'
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Notion API 서버 실행 중: http://localhost:${PORT}`);
   console.log(`   - GET  /api/notion/products`);
   console.log(`   - POST /api/notion/products/details`);
   console.log(`   - POST /api/notion/pages`);
+  console.log(`   - POST /api/notion/blocks/append`);
   console.log(`   - Database ID: ${DATABASE_ID}`);
 });

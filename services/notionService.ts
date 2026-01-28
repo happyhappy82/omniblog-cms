@@ -678,7 +678,55 @@ function markdownToNotionBlocks(markdown: string): NotionBlock[] {
 }
 
 /**
+ * 블록을 100개씩 분할하는 헬퍼 함수
+ */
+function chunkArray<T>(array: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+/**
+ * 노션 페이지에 블록 추가 (append)
+ */
+async function appendBlocksToPage(
+  apiKey: string,
+  pageId: string,
+  blocks: NotionBlock[]
+): Promise<{ success: boolean; error?: string }> {
+  const apiUrl = import.meta.env.DEV
+    ? 'http://localhost:4000/api/notion/blocks/append'
+    : '/api/notion-blocks-append';
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      apiKey,
+      pageId,
+      blocks
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok || !data.success) {
+    return {
+      success: false,
+      error: data.error || `HTTP ${response.status}`
+    };
+  }
+
+  return { success: true };
+}
+
+/**
  * 노션 페이지 생성 (프록시 서버를 통해)
+ * 100개 블록 제한을 우회하기 위해 분할 업로드 지원
  */
 export async function createNotionPage(
   apiKey: string,
@@ -689,31 +737,30 @@ export async function createNotionPage(
 ): Promise<{ success: boolean; pageUrl?: string; error?: string }> {
   try {
     // 마크다운을 노션 블록으로 변환
-    const blocks = markdownToNotionBlocks(content);
+    const allBlocks = markdownToNotionBlocks(content);
+    const BLOCK_LIMIT = 100;
 
     console.log('📅 Creating Notion page with scheduledDate:', scheduledDate);
+    console.log(`📦 Total blocks: ${allBlocks.length}`);
 
     // 프록시 서버를 통해 노션 API 호출
-    // 개발 환경: localhost:4000, 프로덕션: Vercel serverless function
     const apiUrl = import.meta.env.DEV
       ? 'http://localhost:4000/api/notion/pages'
       : '/api/notion-pages';
+
+    // 첫 100개 블록으로 페이지 생성
+    const firstChunk = allBlocks.slice(0, BLOCK_LIMIT);
+    const remainingBlocks = allBlocks.slice(BLOCK_LIMIT);
 
     const requestData = {
       apiKey,
       databaseId,
       title: title || '제목 없음',
-      blocks,
+      blocks: firstChunk,
       scheduledDate
     };
 
-    console.log('📤 Sending to Notion API:', {
-      title: requestData.title,
-      scheduledDate: requestData.scheduledDate,
-      blocksCount: blocks.length
-    });
-
-    console.log('🔍 DEBUG - First 3 blocks:', JSON.stringify(blocks.slice(0, 3), null, 2));
+    console.log('📤 Creating page with first', firstChunk.length, 'blocks');
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -725,8 +772,6 @@ export async function createNotionPage(
 
     const data = await response.json();
 
-    console.log('📥 Response from server:', data);
-
     if (!response.ok || !data.success) {
       console.error('❌ Notion API Error:', data);
       return {
@@ -735,11 +780,46 @@ export async function createNotionPage(
       };
     }
 
-    console.log('✅ Notion page created successfully!', data.pageUrl);
+    const pageId = data.pageId;
+    const pageUrl = data.pageUrl;
+
+    console.log('✅ Page created with ID:', pageId);
+
+    // 나머지 블록이 있으면 100개씩 나눠서 append
+    if (remainingBlocks.length > 0) {
+      const chunks = chunkArray(remainingBlocks, BLOCK_LIMIT);
+      console.log(`📦 Appending ${remainingBlocks.length} more blocks in ${chunks.length} batch(es)`);
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        console.log(`📤 Appending batch ${i + 1}/${chunks.length} (${chunk.length} blocks)`);
+
+        const appendResult = await appendBlocksToPage(apiKey, pageId, chunk);
+
+        if (!appendResult.success) {
+          console.error(`❌ Failed to append batch ${i + 1}:`, appendResult.error);
+          // 페이지는 이미 생성되었으므로 부분 성공으로 처리
+          return {
+            success: true,
+            pageUrl,
+            error: `페이지 생성됨, 하지만 일부 블록 추가 실패: ${appendResult.error}`
+          };
+        }
+
+        // API 부하 방지를 위한 짧은 딜레이
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+
+      console.log('✅ All blocks appended successfully!');
+    }
+
+    console.log('✅ Notion page created successfully!', pageUrl);
 
     return {
       success: true,
-      pageUrl: data.pageUrl
+      pageUrl
     };
   } catch (error: any) {
     console.error('Notion Upload Error:', error);
