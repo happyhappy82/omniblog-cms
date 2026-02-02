@@ -9,6 +9,13 @@ const PORT = process.env.SERVER_PORT || 4000;
 
 const NOTION_API_KEY = process.env.NOTION_API_KEY;
 const DATABASE_ID = process.env.NOTION_DATABASE_ID || '2f4753eb-c013-80cc-baac-cd83c8d38866';
+const MONITOR_DATABASE_ID = process.env.NOTION_MONITOR_DATABASE_ID || '2f6753eb-c013-8000-94b5-e4016e92fa85';
+
+// 카테고리별 DB 매핑
+const PRODUCT_DATABASES = {
+  notebook: DATABASE_ID,
+  monitor: MONITOR_DATABASE_ID,
+};
 
 app.use(cors());
 app.use(express.json());
@@ -33,6 +40,10 @@ async function notionFetch(endpoint, options = {}) {
  */
 app.get('/api/notion/products', async (req, res) => {
   try {
+    // 카테고리별 DB 선택 (?category=notebook|monitor)
+    const category = req.query.category || 'notebook';
+    const dbId = PRODUCT_DATABASES[category] || DATABASE_ID;
+
     // 페이지네이션으로 모든 제품 가져오기
     let allResults = [];
     let hasMore = true;
@@ -42,7 +53,7 @@ app.get('/api/notion/products', async (req, res) => {
       const body = { page_size: 100 };
       if (startCursor) body.start_cursor = startCursor;
 
-      const response = await notionFetch(`/databases/${DATABASE_ID}/query`, {
+      const response = await notionFetch(`/databases/${dbId}/query`, {
         method: 'POST',
         body: JSON.stringify(body),
       });

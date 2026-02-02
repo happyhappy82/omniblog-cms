@@ -6,6 +6,13 @@ import { CONFIG } from '../config';
 const API_BASE = 'http://localhost:4000';
 const MAX_PRODUCTS = CONFIG.PRODUCT.MAX_IMPORT;
 
+type ProductCategory = 'notebook' | 'monitor';
+
+const CATEGORY_CONFIG: { id: ProductCategory; label: string; icon: string }[] = [
+  { id: 'notebook', label: '노트북', icon: 'Laptop' },
+  { id: 'monitor', label: '모니터', icon: 'Monitor' },
+];
+
 interface NotionProductImporterProps {
   isOpen: boolean;
   onClose: () => void;
@@ -37,6 +44,9 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
   const [fetchingDetails, setFetchingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 카테고리 탭
+  const [activeCategory, setActiveCategory] = useState<ProductCategory>('notebook');
+
   // 제품 목록
   const [productList, setProductList] = useState<ProductListItem[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
@@ -50,9 +60,21 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
   // 모달 열릴 때 제품 목록 가져오기
   useEffect(() => {
     if (isOpen) {
-      fetchProductList();
+      fetchProductList(activeCategory);
     }
   }, [isOpen]);
+
+  // 카테고리 변경 시 제품 목록 다시 가져오기
+  const handleCategoryChange = (category: ProductCategory) => {
+    if (category === activeCategory) return;
+    setActiveCategory(category);
+    setSelectedProductIds(new Set());
+    setSearchQuery('');
+    setPriceFilter('all');
+    setPriceMin('');
+    setPriceMax('');
+    fetchProductList(category);
+  };
 
   const resetState = useCallback(() => {
     setLoading(false);
@@ -61,6 +83,7 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
     setProductList([]);
     setSelectedProductIds(new Set());
     setSearchQuery('');
+    setActiveCategory('notebook');
     setPriceFilter('all');
     setPriceMin('');
     setPriceMax('');
@@ -72,12 +95,12 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
   };
 
   // 노션에서 제품 목록 가져오기
-  const fetchProductList = async () => {
+  const fetchProductList = async (category: ProductCategory) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/notion/products`);
+      const response = await fetch(`${API_BASE}/api/notion/products?category=${category}`);
       const data = await response.json();
 
       if (!data.success) {
@@ -101,7 +124,6 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
       if (newSet.has(productId)) {
         newSet.delete(productId);
       } else {
-        // 최대 5개까지만 선택 가능
         if (newSet.size >= MAX_PRODUCTS) {
           return prev;
         }
@@ -113,11 +135,9 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
 
   // 검색 + 가격 필터링
   const filteredProducts = productList.filter(p => {
-    // 검색어 필터
     if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
-    // 가격 범위 필터
     if (priceFilter === 'range') {
       const price = parsePrice(p.price);
       const min = priceMin ? parseInt(priceMin, 10) * 10000 : 0;
@@ -152,7 +172,6 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
         throw new Error(data.error || '상세 정보를 가져올 수 없습니다');
       }
 
-      // NotionGamingLaptop 형식으로 변환
       const products: NotionGamingLaptop[] = data.products.map((p: any, idx: number) => ({
         id: p.id,
         name: p.name || '',
@@ -188,6 +207,24 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
           </button>
         </div>
 
+        {/* Category Tabs */}
+        <div className="flex border-b border-slate-800 bg-[#161B22]">
+          {CATEGORY_CONFIG.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => handleCategoryChange(cat.id)}
+              className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-all border-b-2 ${
+                activeCategory === cat.id
+                  ? 'text-[#0EA5E9] border-[#0EA5E9] bg-[#0EA5E9]/5'
+                  : 'text-slate-500 border-transparent hover:text-slate-300 hover:bg-slate-800/50'
+              }`}
+            >
+              <Icon name={cat.icon} size={16} />
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {/* 로딩 상태 */}
@@ -206,7 +243,7 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
                 {error}
               </p>
               <button
-                onClick={fetchProductList}
+                onClick={() => fetchProductList(activeCategory)}
                 className="mt-2 text-sm text-[#0EA5E9] hover:underline"
               >
                 다시 시도

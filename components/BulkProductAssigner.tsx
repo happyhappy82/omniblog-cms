@@ -5,6 +5,13 @@ import { CONFIG } from '../config';
 
 const API_BASE = 'http://localhost:4000';
 
+type ProductCategory = 'notebook' | 'monitor';
+
+const CATEGORY_CONFIG: { id: ProductCategory; label: string; icon: string }[] = [
+  { id: 'notebook', label: '노트북', icon: 'Laptop' },
+  { id: 'monitor', label: '모니터', icon: 'Monitor' },
+];
+
 interface BulkProductAssignerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -34,6 +41,9 @@ export const BulkProductAssigner: React.FC<BulkProductAssignerProps> = ({
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 카테고리 탭
+  const [activeCategory, setActiveCategory] = useState<ProductCategory>('notebook');
+
   // 제품 목록
   const [allProducts, setAllProducts] = useState<ProductListItem[]>([]);
 
@@ -49,9 +59,19 @@ export const BulkProductAssigner: React.FC<BulkProductAssignerProps> = ({
   // 모달 열릴 때 제품 목록 가져오기
   useEffect(() => {
     if (isOpen) {
-      fetchProductList();
+      fetchProductList(activeCategory);
     }
   }, [isOpen]);
+
+  // 카테고리 변경 핸들러
+  const handleCategoryChange = (category: ProductCategory) => {
+    if (category === activeCategory) return;
+    setActiveCategory(category);
+    setFilterType('all');
+    setPriceMin(0);
+    setPriceMax(5000000);
+    fetchProductList(category);
+  };
 
   // 가격 문자열을 숫자로 변환
   const parsePrice = (priceStr: string): number => {
@@ -61,12 +81,12 @@ export const BulkProductAssigner: React.FC<BulkProductAssignerProps> = ({
   };
 
   // 제품 목록 가져오기
-  const fetchProductList = async () => {
+  const fetchProductList = async (category: ProductCategory) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/api/notion/products`);
+      const response = await fetch(`${API_BASE}/api/notion/products?category=${category}`);
       const data = await response.json();
 
       if (!data.success) {
@@ -254,6 +274,24 @@ export const BulkProductAssigner: React.FC<BulkProductAssignerProps> = ({
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
             <Icon name="X" size={20} />
           </button>
+        </div>
+
+        {/* 카테고리 탭 */}
+        <div className="flex border-b border-slate-800">
+          {CATEGORY_CONFIG.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => handleCategoryChange(cat.id)}
+              className={`flex-1 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-all border-b-2 ${
+                activeCategory === cat.id
+                  ? 'text-[#0EA5E9] border-[#0EA5E9] bg-[#0EA5E9]/5'
+                  : 'text-slate-500 border-transparent hover:text-slate-300 hover:bg-slate-800/50'
+              }`}
+            >
+              <Icon name={cat.icon} size={16} />
+              {cat.label}
+            </button>
+          ))}
         </div>
 
         {/* Content */}
