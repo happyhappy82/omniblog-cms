@@ -1,6 +1,7 @@
 import { NotionGamingLaptop, ProductGroup } from '../types';
+import { CONFIG } from '../config';
 
-const GROUP_SIZE = 5;
+const GROUP_SIZE = CONFIG.PRODUCT.GROUP_SIZE;
 
 /**
  * GPU별 그룹핑 (RTX 4060, RTX 5060 등)

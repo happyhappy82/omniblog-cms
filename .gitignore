@@ -31,3 +31,4 @@ dist-ssr
 
 # MCP settings (contains API keys)
 .mcp.json
+.env*.local

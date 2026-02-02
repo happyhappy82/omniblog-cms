@@ -1,3 +1,5 @@
+import { CONFIG } from '../config';
+
 interface NotionBlock {
   object: 'block';
   type: string;
@@ -738,7 +740,7 @@ export async function createNotionPage(
   try {
     // 마크다운을 노션 블록으로 변환
     const allBlocks = markdownToNotionBlocks(content);
-    const BLOCK_LIMIT = 100;
+    const BLOCK_LIMIT = CONFIG.NOTION.BLOCK_LIMIT;
 
     console.log('📅 Creating Notion page with scheduledDate:', scheduledDate);
     console.log(`📦 Total blocks: ${allBlocks.length}`);
@@ -808,7 +810,7 @@ export async function createNotionPage(
 
         // API 부하 방지를 위한 짧은 딜레이
         if (i < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, CONFIG.NOTION.APPEND_DELAY_MS));
         }
       }
 

@@ -175,3 +175,13 @@ export interface ProductGroup {
   groupType: 'price' | 'gpu' | 'brand';
   products: NotionGamingLaptop[];
 }
+
+// 발행된 글 정보 (내부 링크 삽입용)
+export interface PublishedPost {
+  pageId: string;
+  title: string;
+  slug: string;
+  createdTime: string;
+  tags?: string[];
+  nicheId: NicheType;
+}

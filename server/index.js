@@ -33,17 +33,30 @@ async function notionFetch(endpoint, options = {}) {
  */
 app.get('/api/notion/products', async (req, res) => {
   try {
-    // Notion REST API 직접 호출
-    const response = await notionFetch(`/databases/${DATABASE_ID}/query`, {
-      method: 'POST',
-      body: JSON.stringify({ page_size: 100 }),
-    });
+    // 페이지네이션으로 모든 제품 가져오기
+    let allResults = [];
+    let hasMore = true;
+    let startCursor = undefined;
 
-    if (response.object === 'error') {
-      throw new Error(response.message);
+    while (hasMore) {
+      const body = { page_size: 100 };
+      if (startCursor) body.start_cursor = startCursor;
+
+      const response = await notionFetch(`/databases/${DATABASE_ID}/query`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+
+      if (response.object === 'error') {
+        throw new Error(response.message);
+      }
+
+      allResults = allResults.concat(response.results || []);
+      hasMore = response.has_more;
+      startCursor = response.next_cursor;
     }
 
-    const products = response.results.map((page, index) => {
+    const products = allResults.map((page, index) => {
       const props = page.properties;
       return {
         id: page.id,
@@ -410,11 +423,150 @@ app.post('/api/notion/blocks/append', async (req, res) => {
   }
 });
 
+/**
+ * 발행된 글 목록 조회 (내부 링크용)
+ * POST /api/notion/published-posts
+ * Body: { apiKey, databaseId, searchQuery?, limit? }
+ */
+app.post('/api/notion/published-posts', async (req, res) => {
+  try {
+    const { apiKey, databaseId, searchQuery, limit = 50 } = req.body;
+
+    if (!apiKey || !databaseId) {
+      return res.status(400).json({
+        success: false,
+        error: 'apiKey, databaseId가 필요합니다'
+      });
+    }
+
+    // 오늘 날짜 (YYYY-MM-DD 형식)
+    const today = new Date().toISOString().split('T')[0];
+
+    // Notion API 필터: Status = Published AND Date <= 오늘
+    const baseFilters = [
+      {
+        property: 'Status',
+        status: {
+          equals: 'Published'
+        }
+      },
+      {
+        property: 'Date',
+        date: {
+          on_or_before: today
+        }
+      }
+    ];
+
+    // 검색어가 있으면 제목 필터 추가
+    const filters = searchQuery
+      ? [
+          ...baseFilters,
+          {
+            property: 'title',
+            rich_text: {
+              contains: searchQuery
+            }
+          }
+        ]
+      : baseFilters;
+
+    const requestBody = {
+      filter: { and: filters },
+      sorts: [
+        {
+          timestamp: 'created_time',
+          direction: 'descending'
+        }
+      ],
+      page_size: Math.min(limit, 100)
+    };
+
+    // Notion API 호출
+    const response = await fetch(
+      `https://api.notion.com/v1/databases/${databaseId}/query`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': '2022-06-28'
+        },
+        body: JSON.stringify(requestBody)
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.object === 'error') {
+      console.error('Notion API Error:', data);
+      return res.status(400).json({
+        success: false,
+        error: data.message || 'Notion API 오류'
+      });
+    }
+
+    // 결과 파싱
+    const posts = (data.results || []).map(page => {
+      const properties = page.properties;
+
+      // 제목 추출 - title 타입 속성 찾기
+      let title = '';
+      for (const [key, prop] of Object.entries(properties)) {
+        if (prop && prop.type === 'title' && prop.title) {
+          title = prop.title.map(t => t.plain_text || '').join('');
+          break;
+        }
+      }
+
+      // Date 속성 추출
+      let publishDate = page.created_time; // 기본값은 생성일
+      if (properties.Date?.date?.start) {
+        publishDate = properties.Date.date.start;
+      } else if (properties['날짜']?.date?.start) {
+        publishDate = properties['날짜'].date.start;
+      }
+
+      // 태그 추출
+      let tags = [];
+      if (properties.Tags?.multi_select) {
+        tags = properties.Tags.multi_select.map(tag => tag.name);
+      } else if (properties.tags?.multi_select) {
+        tags = properties.tags.multi_select.map(tag => tag.name);
+      } else if (properties['태그']?.multi_select) {
+        tags = properties['태그'].multi_select.map(tag => tag.name);
+      }
+
+      return {
+        pageId: page.id,
+        title,
+        createdTime: publishDate,  // Date 속성 값 사용
+        tags
+      };
+    });
+
+    res.json({
+      success: true,
+      posts,
+      total: posts.length,
+      hasMore: data.has_more,
+      nextCursor: data.next_cursor
+    });
+  } catch (error) {
+    console.error('Published Posts Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '발행된 글 조회 중 오류가 발생했습니다'
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Notion API 서버 실행 중: http://localhost:${PORT}`);
   console.log(`   - GET  /api/notion/products`);
   console.log(`   - POST /api/notion/products/details`);
   console.log(`   - POST /api/notion/pages`);
   console.log(`   - POST /api/notion/blocks/append`);
+  console.log(`   - POST /api/notion/published-posts`);
   console.log(`   - Database ID: ${DATABASE_ID}`);
 });

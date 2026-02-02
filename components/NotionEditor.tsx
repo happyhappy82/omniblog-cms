@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Icon } from './Icon';
 import { useImageUpload } from '../hooks/useImageUpload';
+import { InternalLinkDialog } from './InternalLinkDialog';
+import { NicheType, NicheSettings } from '../types';
 
 interface NotionEditorProps {
   content: string;
@@ -10,9 +12,21 @@ interface NotionEditorProps {
   isUploading?: boolean;
   uploadSuccess?: boolean;
   imgbbApiKey: string;
+  currentNicheId?: NicheType;
+  nicheSettings?: { [key in NicheType]: NicheSettings };
 }
 
-export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, onGenerateNotion, readOnly = false, isUploading = false, uploadSuccess = false, imgbbApiKey }) => {
+export const NotionEditor: React.FC<NotionEditorProps> = ({
+  content,
+  onChange,
+  onGenerateNotion,
+  readOnly = false,
+  isUploading = false,
+  uploadSuccess = false,
+  imgbbApiKey,
+  currentNicheId = NicheType.AI,
+  nicheSettings
+}) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const floatingMenuRef = useRef<HTMLDivElement>(null);
@@ -24,6 +38,7 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
   const [linkSelection, setLinkSelection] = useState({ start: 0, end: 0 });
   const [showFloatingMenu, setShowFloatingMenu] = useState(false);
   const [floatingMenuPosition, setFloatingMenuPosition] = useState({ top: 0, left: 0 });
+  const [showInternalLinkDialog, setShowInternalLinkDialog] = useState(false);
 
   // Image upload hook
   const { uploadState, handleFileSelect, handleDrop, handlePaste, clearError } = useImageUpload({
@@ -219,6 +234,45 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
     }, 0);
   };
 
+  // Insert internal links
+  const insertInternalLinks = (markdown: string, position: 'cursor' | 'bottom') => {
+    if (!textareaRef.current) return;
+
+    const scrollTop = textareaRef.current.scrollTop;
+    const text = textareaRef.current.value;
+
+    let newText: string;
+    let newCursorPosition: number;
+
+    if (position === 'bottom') {
+      // 글 하단에 삽입
+      newText = text.trimEnd() + '\n\n' + markdown;
+      newCursorPosition = newText.length;
+    } else {
+      // 커서 위치에 삽입
+      const cursorPos = textareaRef.current.selectionStart;
+      const before = text.substring(0, cursorPos);
+      const after = text.substring(cursorPos);
+      newText = before + markdown + after;
+      newCursorPosition = cursorPos + markdown.length;
+    }
+
+    onChange(newText);
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+        if (position !== 'bottom') {
+          textareaRef.current.scrollTop = scrollTop;
+        } else {
+          // 하단에 삽입한 경우 스크롤을 맨 아래로
+          textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+        }
+      }
+    }, 0);
+  };
+
   const ToolbarButton = ({ icon, onClick, tooltip, label }: { icon?: string, label?: string, onClick: () => void, tooltip: string }) => (
     <button 
       onClick={onClick}
@@ -311,7 +365,10 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
           
           <ToolbarButton icon="Table" onClick={() => {}} tooltip="표 (미지원)" />
           <ToolbarButton icon="Code" onClick={() => insertFormat('```\n', '\n```')} tooltip="코드 블록" />
-          <ToolbarButton icon="Link" onClick={openLinkDialog} tooltip="링크" />
+          <ToolbarButton icon="Link" onClick={openLinkDialog} tooltip="외부 링크" />
+          {nicheSettings && (
+            <ToolbarButton icon="Link2" onClick={() => setShowInternalLinkDialog(true)} tooltip="내부 링크 삽입" />
+          )}
           
           <div className="w-px h-3 bg-slate-700 mx-2"></div>
 
@@ -577,6 +634,17 @@ export const NotionEditor: React.FC<NotionEditorProps> = ({ content, onChange, o
           />
         )}
       </div>
+
+      {/* Internal Link Dialog */}
+      {nicheSettings && (
+        <InternalLinkDialog
+          isOpen={showInternalLinkDialog}
+          onClose={() => setShowInternalLinkDialog(false)}
+          onInsert={insertInternalLinks}
+          currentNicheId={currentNicheId}
+          nicheSettings={nicheSettings}
+        />
+      )}
     </div>
   );
 };

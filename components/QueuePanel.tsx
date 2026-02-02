@@ -360,15 +360,15 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
 
             <button
               onClick={() => onBulkGenerate(nicheId === NicheType.AI ? { generateNaver: bulkGenerateNaver, generateNotion: bulkGenerateNotion } : undefined)}
-              disabled={statusCounts.idle === 0}
+              disabled={statusCounts.idle + statusCounts.generated + statusCounts.error === 0}
               className={`w-full py-2.5 rounded-lg font-bold text-white text-sm flex items-center justify-center gap-2 transition-all ${
-                statusCounts.idle === 0
+                statusCounts.idle + statusCounts.generated + statusCounts.error === 0
                   ? 'bg-slate-800 cursor-not-allowed opacity-50'
                   : 'bg-green-600 hover:bg-green-700 shadow-lg shadow-green-900/20'
               }`}
             >
               <Icon name="Play" size={16} />
-              일괄 생성 시작 (대기 {statusCounts.idle}개)
+              일괄 생성 시작 ({statusCounts.idle + statusCounts.generated + statusCounts.error}개)
             </button>
             <button
               onClick={onBulkNotionUpload}

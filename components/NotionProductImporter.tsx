@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Icon } from './Icon';
 import { NotionGamingLaptop } from '../types';
+import { CONFIG } from '../config';
 
 const API_BASE = 'http://localhost:4000';
-const MAX_PRODUCTS = 5;
+const MAX_PRODUCTS = CONFIG.PRODUCT.MAX_IMPORT;
 
 interface NotionProductImporterProps {
   isOpen: boolean;
@@ -20,6 +21,13 @@ interface ProductListItem {
   rocketDelivery: boolean;
 }
 
+type PriceFilter = 'all' | 'range';
+
+const parsePrice = (priceStr: string): number => {
+  if (!priceStr) return 0;
+  return parseInt(priceStr.replace(/[^0-9]/g, ''), 10) || 0;
+};
+
 export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
   isOpen,
   onClose,
@@ -33,6 +41,11 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
   const [productList, setProductList] = useState<ProductListItem[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 가격 필터
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
+  const [priceMin, setPriceMin] = useState<string>('');
+  const [priceMax, setPriceMax] = useState<string>('');
 
   // 모달 열릴 때 제품 목록 가져오기
   useEffect(() => {
@@ -48,6 +61,9 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
     setProductList([]);
     setSelectedProductIds(new Set());
     setSearchQuery('');
+    setPriceFilter('all');
+    setPriceMin('');
+    setPriceMax('');
   }, []);
 
   const handleClose = () => {
@@ -95,10 +111,21 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
     });
   };
 
-  // 검색 필터링
-  const filteredProducts = productList.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // 검색 + 가격 필터링
+  const filteredProducts = productList.filter(p => {
+    // 검색어 필터
+    if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    // 가격 범위 필터
+    if (priceFilter === 'range') {
+      const price = parsePrice(p.price);
+      const min = priceMin ? parseInt(priceMin, 10) * 10000 : 0;
+      const max = priceMax ? parseInt(priceMax, 10) * 10000 : Infinity;
+      if (price < min || price > max) return false;
+    }
+    return true;
+  });
 
   // 선택된 제품들의 상세 정보 가져와서 문맥에 저장
   const handleSaveToContext = async () => {
@@ -209,6 +236,79 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
                 </div>
               </div>
 
+              {/* 가격 필터 */}
+              <div className="bg-[#161B22] border border-slate-700 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon name="Filter" size={14} className="text-slate-400" />
+                  <span className="text-xs font-bold text-slate-300">가격 필터</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPriceFilter('all')}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                      priceFilter === 'all'
+                        ? 'border-[#0EA5E9] bg-[#0EA5E9]/10 text-white font-bold'
+                        : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    전체
+                  </button>
+                  <button
+                    onClick={() => setPriceFilter('range')}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                      priceFilter === 'range'
+                        ? 'border-[#0EA5E9] bg-[#0EA5E9]/10 text-white font-bold'
+                        : 'border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    가격 범위
+                  </button>
+                  {priceFilter === 'range' && (
+                    <div className="flex items-center gap-2 ml-2">
+                      <input
+                        type="number"
+                        value={priceMin}
+                        onChange={(e) => setPriceMin(e.target.value)}
+                        placeholder="최소"
+                        className="w-20 px-2 py-1.5 bg-[#0D1117] border border-slate-700 rounded-lg text-xs text-white focus:border-[#0EA5E9] outline-none text-center"
+                      />
+                      <span className="text-xs text-slate-500">~</span>
+                      <input
+                        type="number"
+                        value={priceMax}
+                        onChange={(e) => setPriceMax(e.target.value)}
+                        placeholder="최대"
+                        className="w-20 px-2 py-1.5 bg-[#0D1117] border border-slate-700 rounded-lg text-xs text-white focus:border-[#0EA5E9] outline-none text-center"
+                      />
+                      <span className="text-[10px] text-slate-500">만원</span>
+                    </div>
+                  )}
+                </div>
+                {priceFilter === 'range' && (
+                  <div className="flex gap-1.5 mt-2">
+                    {[
+                      { label: '~50만', min: '', max: '50' },
+                      { label: '50~100만', min: '50', max: '100' },
+                      { label: '100~200만', min: '100', max: '200' },
+                      { label: '200~300만', min: '200', max: '300' },
+                      { label: '300만~', min: '300', max: '' },
+                    ].map(preset => (
+                      <button
+                        key={preset.label}
+                        onClick={() => { setPriceMin(preset.min); setPriceMax(preset.max); }}
+                        className={`px-2 py-1 text-[10px] rounded border transition-all ${
+                          priceMin === preset.min && priceMax === preset.max
+                            ? 'border-green-600 bg-green-900/30 text-green-400'
+                            : 'border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* 안내 메시지 */}
               <div className="bg-blue-900/20 border border-blue-800/50 rounded-lg px-4 py-3">
                 <p className="text-sm text-blue-300 flex items-center gap-2">
@@ -270,7 +370,10 @@ export const NotionProductImporter: React.FC<NotionProductImporterProps> = ({
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-800 bg-[#161B22]">
           <div className="text-sm text-slate-500">
-            전체 {productList.length}개 제품
+            {filteredProducts.length !== productList.length
+              ? `필터: ${filteredProducts.length}개 / 전체 ${productList.length}개`
+              : `전체 ${productList.length}개 제품`
+            }
           </div>
           <div className="flex gap-3">
             <button

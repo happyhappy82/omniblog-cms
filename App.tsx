@@ -19,6 +19,7 @@ import { useAuth } from './hooks/useAuth';
 import { LoginDialog } from './components/LoginDialog';
 import { LoadingScreen } from './components/LoadingScreen';
 import { ProductInfoManager } from './components/ProductInfoManager';
+import { CONFIG } from './config';
 
 const App = () => {
   // --- Authentication State ---
@@ -789,20 +790,20 @@ const App = () => {
 
   // 전체 초안에 생성 옵션 일괄 적용
   const handleApplyBulkOptions = (options: { generateNaver: boolean; generateNotion: boolean }) => {
-    const idleDrafts = drafts.filter(d => d.nicheId === activeNicheId && d.status === 'idle');
+    const targetDrafts = drafts.filter(d => d.nicheId === activeNicheId && ['idle', 'generated', 'error'].includes(d.status));
 
-    if (idleDrafts.length === 0) {
-      alert('적용할 대기 항목이 없습니다.');
+    if (targetDrafts.length === 0) {
+      alert('적용할 항목이 없습니다.');
       return;
     }
 
     setDrafts(prev => prev.map(d =>
-      d.nicheId === activeNicheId && d.status === 'idle'
+      d.nicheId === activeNicheId && ['idle', 'generated', 'error'].includes(d.status)
         ? { ...d, generateNaver: options.generateNaver, generateNotion: options.generateNotion, lastModified: Date.now() }
         : d
     ));
 
-    alert(`${idleDrafts.length}개 항목에 옵션이 적용되었습니다.\n- 네이버: ${options.generateNaver ? '생성' : '미생성'}\n- Notion: ${options.generateNotion ? '생성' : '미생성'}`);
+    alert(`${targetDrafts.length}개 항목에 옵션이 적용되었습니다.\n- 네이버: ${options.generateNaver ? '생성' : '미생성'}\n- Notion: ${options.generateNotion ? '생성' : '미생성'}`);
   };
 
   const handleBulkGenerate = async (options?: { generateNaver?: boolean; generateNotion?: boolean }) => {
@@ -811,14 +812,15 @@ const App = () => {
       return;
     }
 
-    const idleDrafts = drafts.filter(d => d.nicheId === activeNicheId && d.status === 'idle');
+    // idle, generated, error 상태 모두 대상 (재생성 가능)
+    const targetDrafts = drafts.filter(d => d.nicheId === activeNicheId && ['idle', 'generated', 'error'].includes(d.status));
 
-    if (idleDrafts.length === 0) {
+    if (targetDrafts.length === 0) {
       alert('생성할 대기 항목이 없습니다.');
       return;
     }
 
-    // AI 플랫폼이고 옵션이 전달된 경우, 모든 idle drafts에 옵션 적용
+    // AI 플랫폼이고 옵션이 전달된 경우, 모든 대상 drafts에 옵션 적용
     if (activeNicheId === NicheType.AI && options) {
       const { generateNaver = true, generateNotion = true } = options;
 
@@ -828,16 +830,16 @@ const App = () => {
         return;
       }
 
-      // 모든 idle drafts에 생성 옵션 적용
+      // 모든 대상 drafts에 생성 옵션 적용
       setDrafts(prev => prev.map(d =>
-        d.nicheId === activeNicheId && d.status === 'idle'
+        d.nicheId === activeNicheId && ['idle', 'generated', 'error'].includes(d.status)
           ? { ...d, generateNaver, generateNotion, lastModified: Date.now() }
           : d
       ));
     }
 
     // 순차적으로 생성
-    for (const draft of idleDrafts) {
+    for (const draft of targetDrafts) {
       // 상태를 generating으로 변경
       setDrafts(prev => prev.map(d =>
         d.id === draft.id
@@ -937,10 +939,10 @@ const App = () => {
       }
 
       // 요청 간 딜레이 (API rate limit 고려)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, CONFIG.GENERATION.RATE_LIMIT_DELAY_MS));
     }
 
-    alert(`일괄 생성 완료! 총 ${idleDrafts.length}개 처리`);
+    alert(`일괄 생성 완료! 총 ${targetDrafts.length}개 처리`);
   };
 
   const handleDragStart = (e: React.DragEvent, nicheId: NicheType) => {
@@ -1014,7 +1016,7 @@ const App = () => {
         }
 
         // API rate limit 고려하여 딜레이
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, CONFIG.NOTION.UPLOAD_DELAY_MS));
       } catch (error) {
         console.error(`Draft ${draft.title} 업로드 실패:`, error);
         failCount++;
@@ -1503,6 +1505,8 @@ const App = () => {
                  isUploading={isUploading}
                  uploadSuccess={uploadSuccess}
                  imgbbApiKey={settings.imgbbApiKey}
+                 currentNicheId={activeNicheId}
+                 nicheSettings={settings.nicheSettings}
                />
             </div>
           </>

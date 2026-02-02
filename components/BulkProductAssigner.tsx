@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
 import { Draft, NotionGamingLaptop, ProductInfo } from '../types';
+import { CONFIG } from '../config';
 
 const API_BASE = 'http://localhost:4000';
 
@@ -223,7 +224,7 @@ export const BulkProductAssigner: React.FC<BulkProductAssignerProps> = ({
         }
 
         // API 부하 방지를 위한 약간의 딜레이
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, CONFIG.PRODUCT.FETCH_DELAY_MS));
       }
 
       onAssignComplete(updatedDrafts);

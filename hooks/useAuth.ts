@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { AuthSession } from '../types';
+import { CONFIG } from '../config';
 
 const SESSION_KEY = 'omni_auth_session';
-const SESSION_DURATION_DAYS = 7;
 
 export const useAuth = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -26,7 +26,7 @@ export const useAuth = () => {
       const session: AuthSession = JSON.parse(stored);
       const daysSinceLogin = (Date.now() - session.timestamp) / (1000 * 60 * 60 * 24);
 
-      if (daysSinceLogin > SESSION_DURATION_DAYS) {
+      if (daysSinceLogin > CONFIG.SESSION_DURATION_DAYS) {
         localStorage.removeItem(SESSION_KEY);
         return false;
       }
