@@ -5,11 +5,13 @@ import { CONFIG } from '../config';
 
 const API_BASE = 'http://localhost:4000';
 
-type ProductCategory = 'notebook' | 'monitor';
+type ProductCategory = 'notebook' | 'monitor' | 'washer' | 'refrigerator';
 
 const CATEGORY_CONFIG: { id: ProductCategory; label: string; icon: string }[] = [
   { id: 'notebook', label: '노트북', icon: 'Laptop' },
   { id: 'monitor', label: '모니터', icon: 'Monitor' },
+  { id: 'washer', label: '세탁기', icon: 'WashingMachine' },
+  { id: 'refrigerator', label: '냉장고', icon: 'Refrigerator' },
 ];
 
 interface BulkProductAssignerProps {
