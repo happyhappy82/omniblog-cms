@@ -12,6 +12,8 @@ const DATABASE_ID = process.env.NOTION_DATABASE_ID || '2f4753eb-c013-80cc-baac-c
 const MONITOR_DATABASE_ID = process.env.NOTION_MONITOR_DATABASE_ID || '2f6753eb-c013-8000-94b5-e4016e92fa85';
 const WASHER_DATABASE_ID = process.env.NOTION_WASHER_DATABASE_ID || '2f4753eb-c013-800e-adff-de9a57023cdf';
 const REFRIGERATOR_DATABASE_ID = process.env.NOTION_REFRIGERATOR_DATABASE_ID || 'b1f01cd4-2873-495c-8886-2b5e6a12a449';
+const AIRCON_DATABASE_ID = process.env.NOTION_AIRCON_DATABASE_ID || '2fb753eb-c013-802c-a1ca-fd7c9fa8c216';
+const PHONE_DATABASE_ID = process.env.NOTION_PHONE_DATABASE_ID || '2fc753eb-c013-80ec-a137-fa1eccaba4ab';
 
 // 카테고리별 DB 매핑
 const PRODUCT_DATABASES = {
@@ -19,6 +21,8 @@ const PRODUCT_DATABASES = {
   monitor: MONITOR_DATABASE_ID,
   washer: WASHER_DATABASE_ID,
   refrigerator: REFRIGERATOR_DATABASE_ID,
+  aircon: AIRCON_DATABASE_ID,
+  phone: PHONE_DATABASE_ID,
 };
 
 app.use(cors());

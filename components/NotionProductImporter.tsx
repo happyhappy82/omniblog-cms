@@ -6,13 +6,15 @@ import { CONFIG } from '../config';
 const API_BASE = 'http://localhost:4000';
 const MAX_PRODUCTS = CONFIG.PRODUCT.MAX_IMPORT;
 
-type ProductCategory = 'notebook' | 'monitor' | 'washer' | 'refrigerator';
+type ProductCategory = 'notebook' | 'monitor' | 'washer' | 'refrigerator' | 'aircon' | 'phone';
 
 const CATEGORY_CONFIG: { id: ProductCategory; label: string; icon: string }[] = [
   { id: 'notebook', label: '노트북', icon: 'Laptop' },
   { id: 'monitor', label: '모니터', icon: 'Monitor' },
   { id: 'washer', label: '세탁기', icon: 'WashingMachine' },
   { id: 'refrigerator', label: '냉장고', icon: 'Refrigerator' },
+  { id: 'aircon', label: '에어컨', icon: 'AirVent' },
+  { id: 'phone', label: '핸드폰', icon: 'Smartphone' },
 ];
 
 interface NotionProductImporterProps {
