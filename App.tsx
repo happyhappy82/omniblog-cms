@@ -74,6 +74,10 @@ const App = () => {
         notionApiKey: import.meta.env.VITE_TECH_NOTION_API_KEY || '',
         notionDatabaseId: import.meta.env.VITE_TECH_NOTION_DATABASE_ID || ''
       },
+      [NicheType.TECH_HYUNTECH]: {
+        notionApiKey: import.meta.env.VITE_TECH_HYUNTECH_NOTION_API_KEY || '',
+        notionDatabaseId: import.meta.env.VITE_TECH_HYUNTECH_NOTION_DATABASE_ID || ''
+      },
       [NicheType.REAL_ESTATE]: {
         notionApiKey: import.meta.env.VITE_REAL_ESTATE_NOTION_API_KEY || '',
         notionDatabaseId: import.meta.env.VITE_REAL_ESTATE_NOTION_DATABASE_ID || ''
@@ -134,6 +138,7 @@ const App = () => {
             [NicheType.AI]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.AI_OFFICIAL]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.TECH]: { notionApiKey: '', notionDatabaseId: '' },
+            [NicheType.TECH_HYUNTECH]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.REAL_ESTATE]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.STOCK]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.POLICY]: { notionApiKey: '', notionDatabaseId: '' },
@@ -183,13 +188,14 @@ const App = () => {
             [NicheType.SEO]: { notionApiKey: '', notionDatabaseId: '' }
           }
         });
-      } else if (!parsed.nicheSettings?.[NicheType.AI_OFFICIAL]) {
-        // AI_OFFICIAL nicheSettings가 없는 경우 추가
+      } else if (!parsed.nicheSettings?.[NicheType.AI_OFFICIAL] || !parsed.nicheSettings?.[NicheType.TECH_HYUNTECH]) {
+        // AI_OFFICIAL 또는 TECH_HYUNTECH nicheSettings가 없는 경우 추가
         setSettings({
           ...parsed,
           nicheSettings: {
             ...parsed.nicheSettings,
-            [NicheType.AI_OFFICIAL]: { notionApiKey: '', notionDatabaseId: '' }
+            [NicheType.AI_OFFICIAL]: parsed.nicheSettings?.[NicheType.AI_OFFICIAL] || { notionApiKey: '', notionDatabaseId: '' },
+            [NicheType.TECH_HYUNTECH]: parsed.nicheSettings?.[NicheType.TECH_HYUNTECH] || { notionApiKey: '', notionDatabaseId: '' }
           }
         });
       } else {
@@ -746,7 +752,7 @@ const App = () => {
         }
 
         // Tech 플랫폼이고 제품 정보가 있으면 쿠팡 버튼 삽입
-        if (activeNicheId === NicheType.TECH && currentDraft.products && currentDraft.products.length > 0) {
+        if ((activeNicheId === NicheType.TECH || activeNicheId === NicheType.TECH_HYUNTECH) && currentDraft.products && currentDraft.products.length > 0) {
           generatedContent = insertCoupangButtons(generatedContent, currentDraft.products);
         }
 
@@ -922,7 +928,7 @@ const App = () => {
           );
 
           // Tech 플랫폼이고 제품 정보가 있으면 쿠팡 버튼 삽입
-          if (activeNicheId === NicheType.TECH && draft.products && draft.products.length > 0) {
+          if ((activeNicheId === NicheType.TECH || activeNicheId === NicheType.TECH_HYUNTECH) && draft.products && draft.products.length > 0) {
             generatedContent = insertCoupangButtons(generatedContent, draft.products);
           }
 
@@ -1295,7 +1301,7 @@ const App = () => {
                       )}
 
                       {/* TECH 니치 전용: 제품 정보 추가 */}
-                      {activeNicheId === NicheType.TECH && currentDraft && (
+                      {(activeNicheId === NicheType.TECH || activeNicheId === NicheType.TECH_HYUNTECH) && currentDraft && (
                         <div className="mb-4 space-y-3">
                           {/* 노션에서 제품 가져오기 버튼 */}
                           <button
@@ -1557,7 +1563,7 @@ const App = () => {
       <BulkProductAssigner
         isOpen={isBulkAssignerOpen}
         onClose={() => setIsBulkAssignerOpen(false)}
-        drafts={drafts.filter(d => d.nicheId === NicheType.TECH)}
+        drafts={drafts.filter(d => d.nicheId === NicheType.TECH || d.nicheId === NicheType.TECH_HYUNTECH)}
         onAssignComplete={(updatedDrafts) => {
           setDrafts(prev => prev.map(d => {
             const updated = updatedDrafts.find(u => u.id === d.id);

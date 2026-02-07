@@ -343,7 +343,7 @@ export const QueuePanel: React.FC<QueuePanelProps> = ({
             )}
 
             {/* TECH 플랫폼 전용: 일괄 제품 할당 버튼 */}
-            {nicheId === NicheType.TECH && onOpenBulkProductAssigner && (
+            {(nicheId === NicheType.TECH || nicheId === NicheType.TECH_HYUNTECH) && onOpenBulkProductAssigner && (
               <button
                 onClick={onOpenBulkProductAssigner}
                 disabled={statusCounts.idle === 0}

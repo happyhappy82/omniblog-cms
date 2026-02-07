@@ -2,6 +2,7 @@ export enum NicheType {
   AI = 'AI',
   AI_OFFICIAL = 'AI_OFFICIAL',
   TECH = 'TECH',
+  TECH_HYUNTECH = 'TECH_HYUNTECH',
   REAL_ESTATE = 'REAL_ESTATE',
   STOCK = 'STOCK',
   POLICY = 'POLICY',
