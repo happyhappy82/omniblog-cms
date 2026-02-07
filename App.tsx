@@ -47,9 +47,23 @@ const App = () => {
         const filtered = parsedOrder.filter(id =>
           id !== 'HOSPITAL' && validNicheIds.includes(id)
         );
-        // 누락된 niche 추가 (예: TRAVEL)
+        // 누락된 niche를 원래 NICHES 배열 순서에 맞는 위치에 삽입
         const missing = validNicheIds.filter(id => !filtered.includes(id));
-        return [...filtered, ...missing];
+        const result = [...filtered];
+        missing.forEach(missingId => {
+          const defaultIndex = validNicheIds.indexOf(missingId);
+          // 기본 순서에서 바로 앞에 있는 niche를 찾아 그 뒤에 삽입
+          let insertAt = result.length;
+          for (let i = defaultIndex - 1; i >= 0; i--) {
+            const prevIdx = result.indexOf(validNicheIds[i]);
+            if (prevIdx !== -1) {
+              insertAt = prevIdx + 1;
+              break;
+            }
+          }
+          result.splice(insertAt, 0, missingId);
+        });
+        return result;
       } catch {
         return validNicheIds;
       }
