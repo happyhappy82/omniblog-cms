@@ -66,6 +66,10 @@ const App = () => {
         notionApiKey: import.meta.env.VITE_AI_NOTION_API_KEY || '',
         notionDatabaseId: import.meta.env.VITE_AI_NOTION_DATABASE_ID || ''
       },
+      [NicheType.AI_OFFICIAL]: {
+        notionApiKey: import.meta.env.VITE_AI_OFFICIAL_NOTION_API_KEY || '',
+        notionDatabaseId: import.meta.env.VITE_AI_OFFICIAL_NOTION_DATABASE_ID || ''
+      },
       [NicheType.TECH]: {
         notionApiKey: import.meta.env.VITE_TECH_NOTION_API_KEY || '',
         notionDatabaseId: import.meta.env.VITE_TECH_NOTION_DATABASE_ID || ''
@@ -128,6 +132,7 @@ const App = () => {
           imgbbApiKey: '',
           nicheSettings: {
             [NicheType.AI]: { notionApiKey: '', notionDatabaseId: '' },
+            [NicheType.AI_OFFICIAL]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.TECH]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.REAL_ESTATE]: { notionApiKey: '', notionDatabaseId: '' },
             [NicheType.STOCK]: { notionApiKey: '', notionDatabaseId: '' },
@@ -176,6 +181,15 @@ const App = () => {
           nicheSettings: {
             ...parsed.nicheSettings,
             [NicheType.SEO]: { notionApiKey: '', notionDatabaseId: '' }
+          }
+        });
+      } else if (!parsed.nicheSettings?.[NicheType.AI_OFFICIAL]) {
+        // AI_OFFICIAL nicheSettings가 없는 경우 추가
+        setSettings({
+          ...parsed,
+          nicheSettings: {
+            ...parsed.nicheSettings,
+            [NicheType.AI_OFFICIAL]: { notionApiKey: '', notionDatabaseId: '' }
           }
         });
       } else {

@@ -45,7 +45,8 @@ import {
   WashingMachine,
   Refrigerator,
   AirVent,
-  Smartphone
+  Smartphone,
+  BadgeCheck
 } from 'lucide-react';
 
 const icons = {
@@ -53,7 +54,7 @@ const icons = {
   Bold, Italic, List, ListOrdered, Heading1, Heading2, ImageIcon, Check, ChevronRight, Loader2, FileText,
   ArrowLeftRight, RotateCcw, UserCircle, Square, CheckSquare, Code, Link, Table, Eye, PenLine,
   Underline, AlignLeft, Smile, Copy, Sparkles,
-  Building, TrendingUp, Landmark, Stethoscope, Search, X, WashingMachine, Refrigerator, AirVent, Smartphone
+  Building, TrendingUp, Landmark, Stethoscope, Search, X, WashingMachine, Refrigerator, AirVent, Smartphone, BadgeCheck
 };
 
 interface IconProps {
